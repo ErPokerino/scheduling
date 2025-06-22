@@ -1,0 +1,53 @@
+# -------------- Python / Streamlit project --------------
+
+# Virtual environments
+venv/
+.env/
+.venv/
+ENV/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Streamlit specific
+.streamlit/secrets.toml
+
+# Data files (keep sample data in separate folder if needed)
+*.xlsx
+*.csv
+*.json
+data/
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+
+# IDE / editor configs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Other
+build/
+dist/
+*.egg-info/ 

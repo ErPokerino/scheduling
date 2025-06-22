@@ -1,4 +1,3 @@
-
 # Scheduling - Resource Planning App 📅
 
 **A Streamlit web application to manage and monitor project resource allocation for the Data Intelligence area.**
@@ -7,8 +6,8 @@
 - **Project CRUD:** Add new projects, assign team members, and update details.
 - **Monthly Allocation Grid:** Record each person's load (FTE) for every month, years ahead.
 - **Filterable Schedule View:** Slice the table by project, user, year, status, etc.
-- **Analytics Dashboard:** Charts summarising total capacity vs. booked effort per competence center, role, or individual.
-- **Chat Assistant (placeholder):** Framework ready for future LLM integration to query or operate on the data using natural language.
+- **Analytics:** Pie chart view of FTE distribution and monthly workload per user with filters.
+- **Chat Assistant:** Chat bot embedded in the sidebar, placeholder for future LLM integration.
 
 ## Quick Start
 
@@ -27,11 +26,9 @@ streamlit run app.py
 scheduling/
 ├── app.py
 ├── pages/
-│   ├── 1_Dashboard.py
 │   ├── 2_Projects.py
 │   ├── 3_Schedule.py
-│   ├── 4_Analytics.py
-│   └── 5_Chat.py
+│   └── (other Streamlit pages)
 ├── src/
 │   ├── __init__.py
 │   ├── data_access.py

@@ -1,6 +1,5 @@
-
 streamlit>=1.35
 pandas>=2.1
+numpy>=1.25
 openpyxl>=3.1
 plotly>=5.22
-altair>=5.3
