@@ -48,20 +48,37 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             st.experimental_rerun()
 
         for col in df_filtered.columns:
-            if is_categorical_dtype(df_filtered[col]) or df_filtered[col].nunique() < 15:
-                # Treat as categorical
+            # --------- Trattamento colonne categoriche o con bassa cardinalità ---------
+            cat_like = is_categorical_dtype(df_filtered[col]) or (
+                0 < df_filtered[col].nunique() < 15
+            )
+            if cat_like:
+                # Se non ci sono valori unici (tutta NaN) saltiamo il filtro
                 values = df_filtered[col].dropna().unique().tolist()
+                if not values:
+                    continue
                 selected = st.multiselect(
                     f"Valori per `{col}`",
                     options=values,
                     default=list(values),
                     key=f"filter_cat_{col}",
                 )
-                df_filtered = df_filtered[df_filtered[col].isin(selected)]
+                # Manteniamo anche i record con valore mancante per la colonna
+                df_filtered = df_filtered[
+                    df_filtered[col].isin(selected) | df_filtered[col].isna()
+                ]
 
             elif is_numeric_dtype(df_filtered[col]):
-                min_val = float(df_filtered[col].min())
-                max_val = float(df_filtered[col].max())
+                # Se la colonna è tutta NaN, ignoriamo il filtro per non azzerare il DataFrame
+                if df_filtered[col].dropna().empty:
+                    continue
+                min_raw = df_filtered[col].min()
+                max_raw = df_filtered[col].max()
+                if pd.isna(min_raw) or pd.isna(max_raw):
+                    # Colonna senza valori numerici validi
+                    continue
+                min_val = float(min_raw)
+                max_val = float(max_raw)
                 if min_val == max_val:
                     continue  # nothing to filter
                 step = (max_val - min_val) / 100.0 or 1.0
@@ -73,7 +90,9 @@ def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
                     step=step,
                     key=f"filter_num_{col}",
                 )
-                df_filtered = df_filtered[df_filtered[col].between(user_min, user_max)]
+                df_filtered = df_filtered[
+                    df_filtered[col].between(user_min, user_max) | df_filtered[col].isna()
+                ]
 
             elif is_datetime64_any_dtype(df_filtered[col]):
                 start_date = df_filtered[col].min().date()
