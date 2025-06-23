@@ -7,9 +7,14 @@ st.title("📋 Manage Projects")
 
 # Load data and ensure optional columns exist
 df = load_scheduling()
+# Ensure text-based metadata columns exist and are stored as strings/object dtype
 for optional_col in ["PM", "CLIENT", "ITEM_TYPE", "DELIVERY_TYPE"]:
     if optional_col not in df.columns:
-        df[optional_col] = None
+        # create empty string column so dtype becomes 'object'
+        df[optional_col] = ""
+    else:
+        # Cast to string to guarantee compatibility with TextColumn in data_editor
+        df[optional_col] = df[optional_col].fillna("").astype(str)
 
 # Helper per colonne mese
 month_prefixes = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"]
@@ -121,6 +126,10 @@ if submitted:
 
         if new_rows:
             new_df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+            # Aggiorna colonna YEAR in base a START_DATE se presente
+            if "YEAR" not in new_df.columns:
+                new_df["YEAR"] = pd.NA
+            new_df.loc[new_df["YEAR"].isna(), "YEAR"] = pd.to_datetime(new_df.loc[new_df["YEAR"].isna(), "START_DATE"], errors="coerce").dt.year.astype("Int64")
             save_scheduling(new_df)
             st.success("Project added and visible in Schedule.")
         else:
@@ -129,7 +138,15 @@ if submitted:
 # ---------------------- MODIFY / DELETE PROJECT ----------------------
 st.header("Edit or delete existing project")
 project_options = sorted(df["PROJECT_DESCR"].dropna().unique())
-proj_selected = st.selectbox("Select project", project_options, index=None, placeholder="Select...")
+# Multiselect mostra la scelta come "tag" con X per rimuoverla
+proj_selected_list = st.multiselect(
+    "Select project (tag removable)",
+    project_options,
+    default=[],
+    key="select_project_tag",
+)
+# Consideriamo solo il primo elemento selezionato (uno alla volta)
+proj_selected = proj_selected_list[0] if proj_selected_list else None
 
 if proj_selected:
     proj_df = df[df["PROJECT_DESCR"] == proj_selected].copy()
@@ -145,7 +162,18 @@ if proj_selected:
         "START_DATE",
         "END_DATE",
     ]
-    desired_cols = base_cols + month_cols
+    # Colonne numeriche di riepilogo FTE
+    summary_cols = ["PLANNED_FTE", "ACTUAL_FTE"]
+
+    # Ordine delle colonne nell'editor: DELETE a sinistra, poi meta, summary, mesi
+    desired_cols = ["DELETE"] + base_cols + summary_cols + month_cols
+
+    # Se la colonna flag non esiste la creiamo
+    if "DELETE" not in proj_df.columns:
+        proj_df["DELETE"] = False
+    # Assicuriamo dtype boolean
+    proj_df["DELETE"] = proj_df["DELETE"].fillna(False).astype(bool)
+
     existing_cols = [c for c in desired_cols if c in proj_df.columns]
 
     edit_col_conf = {}
@@ -164,6 +192,16 @@ if proj_selected:
         if mc in existing_cols:
             edit_col_conf[mc] = cc.NumberColumn(mc.upper(), min_value=0, step=1)
 
+    # Colonne integer di riepilogo
+    if "PLANNED_FTE" in existing_cols:
+        edit_col_conf["PLANNED_FTE"] = cc.NumberColumn("Planned FTE", min_value=0, step=1)
+    if "ACTUAL_FTE" in existing_cols:
+        edit_col_conf["ACTUAL_FTE"] = cc.NumberColumn("Actual FTE", min_value=0, step=1)
+
+    # Colonna checkbox per eliminare singola riga
+    if "DELETE" in existing_cols:
+        edit_col_conf["DELETE"] = cc.CheckboxColumn("Del.")
+
     edited_df = st.data_editor(
         proj_df[existing_cols],
         key="edit_proj",
@@ -174,14 +212,29 @@ if proj_selected:
     save_col1, save_col2 = st.columns(2)
     with save_col1:
         if st.button("Save changes"):
-            # Rimuovi vecchie righe e sostituisci con quelle modificate
+            # Righe da mantenere (non flaggate)
+            edited_df["DELETE"] = edited_df["DELETE"].fillna(False).astype(bool)
+            to_keep = edited_df[~edited_df["DELETE"]].copy()
+
             df_no_proj = df[df["PROJECT_DESCR"] != proj_selected]
-            # Assicuriamo INT per mesi
-            for mc in month_cols:
-                edited_df[mc] = edited_df[mc].fillna(0).astype(int)
-            updated_df = pd.concat([df_no_proj, edited_df], ignore_index=True)
+            # Assicuriamo INT per mesi e colonne riepilogo
+            for col_int in month_cols + ["PLANNED_FTE", "ACTUAL_FTE"]:
+                if col_int in to_keep.columns:
+                    to_keep[col_int] = to_keep[col_int].fillna(0).astype(int)
+            # Aggiungiamo/aggiorniamo YEAR basato su START_DATE
+            to_keep["YEAR"] = pd.to_datetime(to_keep["START_DATE"], errors="coerce").dt.year.astype("Int64")
+            if "YEAR" not in df_no_proj.columns:
+                df_no_proj["YEAR"] = pd.to_datetime(df_no_proj["START_DATE"], errors="coerce").dt.year.astype("Int64")
+
+            # Rimuoviamo la colonna di servizio prima di salvare
+            to_keep = to_keep.drop(columns=["DELETE"], errors="ignore")
+            updated_df = pd.concat([df_no_proj.drop(columns=["DELETE"], errors="ignore"), to_keep], ignore_index=True)
             save_scheduling(updated_df)
             st.success("Project updated.")
+
+            # Se non resta alcuna riga per il progetto, informare utente
+            if to_keep.empty:
+                st.info("Tutte le righe del progetto sono state eliminate. Il progetto non esisterà più nella schedule.")
 
     with save_col2:
         if st.button("Delete project", type="primary"):
