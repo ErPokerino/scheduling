@@ -7,7 +7,7 @@
 - **Monthly Allocation Grid:** Record each person's load (FTE) for every month, years ahead.
 - **Filterable Schedule View:** Slice the table by project, user, year, status, etc.
 - **Analytics:** Pie chart view of FTE distribution and monthly workload per user with filters.
-- **Chat Assistant:** Chat bot embedded in the sidebar, placeholder for future LLM integration.
+- **Chat Assistant (Gemini):** Conversational assistant that leverages Google Gemini Flash 2.5 to answer questions about the data and how to use the app.
 
 ## Quick Start
 
@@ -17,7 +17,10 @@ cd scheduling
 python -m venv .venv
 source .venv/bin/activate   # on Windows use .venv\Scripts\activate
 pip install -r requirements.txt
-streamlit run app.py
+# copy your env variables
+cp env.example .env  # then edit with your Google API key
+
+streamlit run Scheduling.py
 ```
 
 ## Repository Structure
@@ -28,6 +31,7 @@ scheduling/
 ├── pages/
 │   ├── 2_Projects.py
 │   ├── 3_Schedule.py
+│   ├── 5_Chat.py
 │   └── (other Streamlit pages)
 ├── src/
 │   ├── __init__.py
@@ -54,7 +58,7 @@ Allowed values for many of these fields are defined in the **LoVs** sheet (list�
 
 1. **v0.1 (this repo)** – Streamlit skeleton with in‑memory pandas backend.
 2. **v0.2** – Persist data to SQLite, add authentication via Streamlit‑Auth.
-3. **v0.3** – Integrate an LLM as chat assistant (e.g., OpenAI GPT‑4o) to run filtered queries, explain dashboards, and trigger actions.
+3. **v0.3** – Integrated Google Gemini Flash 2.5 as chat assistant to run filtered queries, explain dashboards, and trigger actions.
 4. **v1.0** – Containerisation with Docker and CI/CD to Cloud Run / ECS.
 
 ---
