@@ -6,6 +6,7 @@
   - Aggiunta progetto (campi richiesti + allocazioni FTE).
   - Modifica / cancellazione progetto.
   - Query analitiche su FTE (per utente, area, progetto, mese…).
+  - Possibilità di rimandare direttamente a sezioni
   - **Aggiungere memoria conversazione** (threading & window memory) per passare il contesto dei messaggi precedenti al modello.
   - **Integrare query su base dati**: trasformare richieste naturali in filtri pandas/SQL per fornire risposte data-driven.
   - **Migliorare il contesto** fornendo al modello metadata dello scheduling (descrizione colonne, esempi) e documentazione app come system prompt.
