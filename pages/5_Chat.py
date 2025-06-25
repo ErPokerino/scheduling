@@ -27,7 +27,7 @@ else:
     st.warning("⚠️ Imposta la variabile d'ambiente GOOGLE_API_KEY per utilizzare il chatbot.")
 
 SYSTEM_PROMPT = (
-    "You are an AI assistant integrated in a Streamlit app that helps users with "
+    "You are an AI assistant integrated an app that helps users with "
     "resource planning and scheduling. The app has these sections:\n"
     "• Scheduling – an interactive table where users filter and view monthly allocation data loaded from an Excel file.\n"
     "• Projects – metadata management for each project.\n"
