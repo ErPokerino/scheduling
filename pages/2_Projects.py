@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from src.data_access import load_scheduling, save_scheduling, load_lovs
+from streamlit_tags import st_tags
 
 # ---------------------- PAGE LAYOUT ----------------------
 st.title("📋 Manage Projects")
@@ -16,6 +17,28 @@ for optional_col in ["PM", "CLIENT", "ITEM_TYPE", "DELIVERY_TYPE"]:
         # Cast to string to guarantee compatibility with TextColumn in data_editor
         df[optional_col] = df[optional_col].fillna("").astype(str)
 
+# Ensure YEAR_OF_COMPETENCE is consistently string type to avoid Arrow conversion issues
+if "YEAR_OF_COMPETENCE" in df.columns:
+    df["YEAR_OF_COMPETENCE"] = df["YEAR_OF_COMPETENCE"].fillna("").astype(str)
+else:
+    df["YEAR_OF_COMPETENCE"] = ""
+
+# Ensure other text columns are also strings
+text_columns = ["PM_SM", "WORKSTREAM", "SOW_ID", "JIRA_KEY", "PROJECT_STREAM", "AREA_CC", "JOB", "STATUS"]
+for col in text_columns:
+    if col in df.columns:
+        df[col] = df[col].fillna("").astype(str)
+    else:
+        df[col] = ""
+
+# Ensure numeric columns are properly typed
+numeric_columns = ["YEAR", "PROGRESS_%", "PLANNED_FTE", "ACTUAL_FTE"]
+for col in numeric_columns:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+    else:
+        df[col] = 0
+
 # Helper per colonne mese
 month_prefixes = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"]
 # Escludiamo colonne derivate che terminano con '1'
@@ -28,56 +51,68 @@ user_suggestions = sorted(df["USER"].dropna().unique())
 st.header("Add a new project")
 
 with st.form(key="add_project", clear_on_submit=True):
-    meta_cols = st.columns(3)
+    # Project metadata section
+    st.markdown("### Project Information")
+    
+    # First row - Project description, Client, PM/SM
+    meta_cols1 = st.columns(3)
+    with meta_cols1[0]:
+        project_descr = st.text_input("PROJECT_DESCR", key="project_descr_input")
+    with meta_cols1[1]:
+        client = st.text_input("CLIENT", key="client_input")
+    with meta_cols1[2]:
+        pm_sm = st.text_input("PM_SM", key="pm_sm_input")
 
-    # Existing suggestions
-    proj_suggestions = sorted(df["PROJECT_DESCR"].dropna().unique())
-    client_suggestions = sorted(df["CLIENT"].dropna().unique())
-    pm_suggestions = sorted(df["PM"].dropna().unique())
+    # Second row - Item type, Delivery type, Workstream
+    meta_cols2 = st.columns(3)
+    with meta_cols2[0]:
+        item_type = st.text_input("ITEM_TYPE", key="item_type_input")
+    with meta_cols2[1]:
+        delivery_type = st.text_input("DELIVERY_TYPE", key="delivery_type_input")
+    with meta_cols2[2]:
+        workstream = st.text_input("WORKSTREAM", key="workstream_input")
 
-    # --- Project description with option new ---
-    sel_proj = meta_cols[0].selectbox(
-        "Project description (select or create)",
-        options=["<New project>"] + proj_suggestions,
-        index=0,
-    )
-    if sel_proj == "<New project>":
-        project_descr = meta_cols[0].text_input("New project description", key="new_proj_descr")
-    else:
-        project_descr = sel_proj
+    # Third row - SOW ID, JIRA Key, Project Stream
+    meta_cols3 = st.columns(3)
+    with meta_cols3[0]:
+        sow_id = st.text_input("SOW_ID", key="sow_id_input")
+    with meta_cols3[1]:
+        jira_key = st.text_input("JIRA_KEY", key="jira_key_input")
+    with meta_cols3[2]:
+        project_stream = st.text_input("PROJECT_STREAM", key="project_stream_input")
 
-    # --- Client ---
-    sel_client = meta_cols[1].selectbox(
-        "Client (select or create)",
-        options=["<New client>"] + client_suggestions,
-        index=0,
-    )
-    if sel_client == "<New client>":
-        client = meta_cols[1].text_input("New client", key="new_client")
-    else:
-        client = sel_client
+    # Fourth row - Area CC, Job, Year of Competence
+    meta_cols4 = st.columns(3)
+    with meta_cols4[0]:
+        area_cc = st.text_input("AREA_CC", key="area_cc_input")
+    with meta_cols4[1]:
+        job = st.text_input("JOB", key="job_input")
+    with meta_cols4[2]:
+        year_of_competence = st.number_input("YEAR_OF_COMPETENCE", min_value=2020, max_value=2035, value=2024, step=1, key="year_of_competence_input")
 
-    # --- PM ---
-    sel_pm = meta_cols[2].selectbox(
-        "Project Manager (PM)",
-        options=["<New PM>"] + pm_suggestions,
-        index=0,
-    )
-    if sel_pm == "<New PM>":
-        pm = meta_cols[2].text_input("New PM", key="new_pm")
-    else:
-        pm = sel_pm
+    # Fifth row - Dates and Year
+    date_cols = st.columns(3)
+    start_date = date_cols[0].date_input("START_DATE")
+    end_date = date_cols[1].date_input("END_DATE")
+    year = date_cols[2].number_input("YEAR", min_value=2020, max_value=2035, value=2024, step=1, key="year_input")
 
-    item_type = st.selectbox("Item type", load_lovs()["ITEM_TYPE"].dropna().unique())
-    delivery_type = st.selectbox("Delivery type", load_lovs()["DELIVERY_TYPE"].dropna().unique())
+    # Sixth row - FTE and Status
+    fte_cols = st.columns(3)
+    planned_fte = fte_cols[0].number_input("PLANNED_FTE", min_value=0, step=1, value=0)
+    actual_fte = fte_cols[1].number_input("ACTUAL_FTE", min_value=0, step=1, value=0)
+    progress_pct = fte_cols[2].number_input("PROGRESS_%", min_value=0, max_value=100, value=0, step=1)
 
-    date_cols = st.columns(2)
-    start_date = date_cols[0].date_input("Start date")
-    end_date = date_cols[1].date_input("End date")
+    # STATUS: selectbox con opzione Altro...
+    status_suggestions = sorted(df["STATUS"].dropna().unique()) if "STATUS" in df.columns else []
+    status_options = status_suggestions + ["Altro..."]
+    status_sel = st.selectbox("STATUS", [""] + status_options, key="status_selectbox")
+    status = status_sel
+    if status_sel == "Altro...":
+        status = st.text_input("Nuovo STATUS", key="status_input")
 
     st.markdown("### Resource allocation (FTE per month)")
     # Editor per inserire USER e FTE sui mesi
-    alloc_template = pd.DataFrame(columns=["USER"] + month_cols)
+    alloc_template = pd.DataFrame(columns=pd.Index(["USER"] + month_cols))
 
     # Configurazioni delle colonne per suggerimenti e interi
     from streamlit import column_config as cc
@@ -99,41 +134,74 @@ with st.form(key="add_project", clear_on_submit=True):
     submitted = st.form_submit_button("Add project")
 
 if submitted:
+    # Permetti inserimento anche con info parziali: basta PROJECT_DESCR
+    project_descr = project_descr.strip() if isinstance(project_descr, str) else ""
+    alloc_rows = allocations.dropna(how='all')  # prendi tutte le righe non completamente vuote
+    new_rows = []
     if not project_descr:
-        st.error("Project description is required.")
+        st.error("PROJECT_DESCR is required.")
     else:
-        new_rows = []
-        # Costruiamo una riga per ogni user inserito
-        for _, alloc_row in allocations.dropna(subset=["USER"]).iterrows():
-            base_record = {col: None for col in df.columns}
-            base_record.update({
+        # Se almeno un USER è inserito, aggiungi una riga per ogni USER
+        valid_alloc = alloc_rows[alloc_rows["USER"].astype(str).str.strip() != ""] if "USER" in alloc_rows.columns else pd.DataFrame()
+        if not valid_alloc.empty:
+            for _, alloc_row in valid_alloc.iterrows():
+                base_record = {
+                    "PROJECT_DESCR": project_descr,
+                    "CLIENT": client,
+                    "PM_SM": pm_sm,
+                    "ITEM_TYPE": item_type,
+                    "DELIVERY_TYPE": delivery_type,
+                    "WORKSTREAM": workstream,
+                    "YEAR_OF_COMPETENCE": str(year_of_competence) if year_of_competence else "",
+                    "START_DATE": pd.to_datetime(start_date),
+                    "END_DATE": pd.to_datetime(end_date),
+                    "SOW_ID": sow_id,
+                    "JIRA_KEY": jira_key,
+                    "PROJECT_STREAM": project_stream,
+                    "AREA_CC": area_cc,
+                    "JOB": job,
+                    "PLANNED_FTE": int(planned_fte),
+                    "ACTUAL_FTE": int(actual_fte),
+                    "STATUS": status,
+                    "PROGRESS_%": progress_pct,
+                    "YEAR": year,
+                    "USER": alloc_row["USER"],
+                }
+                for mc in month_cols:
+                    base_record[mc] = int(alloc_row.get(mc, 0) or 0)
+                new_rows.append(base_record)
+        else:
+            # Nessun USER: aggiungi una riga con USER vuoto e warning
+            base_record = {
                 "PROJECT_DESCR": project_descr,
                 "CLIENT": client,
-                "PM": pm,
+                "PM_SM": pm_sm,
                 "ITEM_TYPE": item_type,
                 "DELIVERY_TYPE": delivery_type,
+                "WORKSTREAM": workstream,
+                "YEAR_OF_COMPETENCE": str(year_of_competence) if year_of_competence else "",
                 "START_DATE": pd.to_datetime(start_date),
                 "END_DATE": pd.to_datetime(end_date),
-                "USER": alloc_row["USER"],
-            })
-
-            # Copia allocazioni mensili, converte a int (NaN -> 0)
+                "SOW_ID": sow_id,
+                "JIRA_KEY": jira_key,
+                "PROJECT_STREAM": project_stream,
+                "AREA_CC": area_cc,
+                "JOB": job,
+                "PLANNED_FTE": int(planned_fte),
+                "ACTUAL_FTE": int(actual_fte),
+                "STATUS": status,
+                "PROGRESS_%": progress_pct,
+                "YEAR": year,
+                "USER": "",
+            }
             for mc in month_cols:
-                val = alloc_row.get(mc, 0) or 0
-                base_record[mc] = int(val)
-
+                base_record[mc] = 0
             new_rows.append(base_record)
-
+            st.warning("Nessun USER inserito: il progetto sarà aggiunto senza allocazione risorse. Potrai modificarlo subito dopo.")
         if new_rows:
             new_df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-            # Aggiorna colonna YEAR in base a START_DATE se presente
-            if "YEAR" not in new_df.columns:
-                new_df["YEAR"] = pd.NA
-            new_df.loc[new_df["YEAR"].isna(), "YEAR"] = pd.to_datetime(new_df.loc[new_df["YEAR"].isna(), "START_DATE"], errors="coerce").dt.year.astype("Int64")
             save_scheduling(new_df)
-            st.success("Project added and visible in Schedule.")
-        else:
-            st.warning("Please enter at least one USER in the allocation table.")
+            st.success("Project added and visible in Schedule. Puoi modificarlo subito sotto.")
 
 # ---------------------- MODIFY / DELETE PROJECT ----------------------
 st.header("Edit or delete existing project")
@@ -156,23 +224,36 @@ if proj_selected:
         "PROJECT_DESCR",
         "USER",
         "CLIENT",
-        "PM",
+        "PM_SM",
         "ITEM_TYPE",
         "DELIVERY_TYPE",
+        "WORKSTREAM",
+        "YEAR_OF_COMPETENCE",
         "START_DATE",
         "END_DATE",
+        "SOW_ID",
+        "JIRA_KEY",
+        "PROJECT_STREAM",
+        "AREA_CC",
+        "JOB",
+        "PLANNED_FTE",
+        "ACTUAL_FTE",
+        "STATUS",
+        "PROGRESS_%",
+        "YEAR",
     ]
-    # Colonne numeriche di riepilogo FTE
-    summary_cols = ["PLANNED_FTE", "ACTUAL_FTE"]
 
-    # Ordine delle colonne nell'editor: DELETE a sinistra, poi meta, summary, mesi
-    desired_cols = ["DELETE"] + base_cols + summary_cols + month_cols
+    # Ordine delle colonne nell'editor: DELETE a sinistra, poi meta, mesi
+    desired_cols = ["DELETE"] + base_cols + month_cols
 
     # Se la colonna flag non esiste la creiamo
     if "DELETE" not in proj_df.columns:
         proj_df["DELETE"] = False
     # Assicuriamo dtype boolean
-    proj_df["DELETE"] = proj_df["DELETE"].fillna(False).astype(bool)
+    if isinstance(proj_df["DELETE"], pd.Series):
+        proj_df["DELETE"] = proj_df["DELETE"].fillna(False).astype(bool)
+    else:
+        proj_df["DELETE"] = False
 
     existing_cols = [c for c in desired_cols if c in proj_df.columns]
 
@@ -181,22 +262,42 @@ if proj_selected:
     if "USER" in existing_cols:
         edit_col_conf["USER"] = cc.SelectboxColumn("USER", options=user_suggestions, required=True)
     if "CLIENT" in existing_cols:
-        edit_col_conf["CLIENT"] = cc.TextColumn("Client")
-    if "PM" in existing_cols:
-        edit_col_conf["PM"] = cc.TextColumn("PM")
+        edit_col_conf["CLIENT"] = cc.TextColumn("CLIENT")
+    if "PM_SM" in existing_cols:
+        edit_col_conf["PM_SM"] = cc.TextColumn("PM_SM")
     if "ITEM_TYPE" in existing_cols:
-        edit_col_conf["ITEM_TYPE"] = cc.TextColumn("Item type")
+        edit_col_conf["ITEM_TYPE"] = cc.TextColumn("ITEM_TYPE")
     if "DELIVERY_TYPE" in existing_cols:
-        edit_col_conf["DELIVERY_TYPE"] = cc.TextColumn("Delivery type")
+        edit_col_conf["DELIVERY_TYPE"] = cc.TextColumn("DELIVERY_TYPE")
+    if "WORKSTREAM" in existing_cols:
+        edit_col_conf["WORKSTREAM"] = cc.TextColumn("WORKSTREAM")
+    if "YEAR_OF_COMPETENCE" in existing_cols:
+        edit_col_conf["YEAR_OF_COMPETENCE"] = cc.TextColumn("YEAR_OF_COMPETENCE")
+    if "SOW_ID" in existing_cols:
+        edit_col_conf["SOW_ID"] = cc.TextColumn("SOW_ID")
+    if "JIRA_KEY" in existing_cols:
+        edit_col_conf["JIRA_KEY"] = cc.TextColumn("JIRA_KEY")
+    if "PROJECT_STREAM" in existing_cols:
+        edit_col_conf["PROJECT_STREAM"] = cc.TextColumn("PROJECT_STREAM")
+    if "AREA_CC" in existing_cols:
+        edit_col_conf["AREA_CC"] = cc.TextColumn("AREA_CC")
+    if "JOB" in existing_cols:
+        edit_col_conf["JOB"] = cc.TextColumn("JOB")
+    if "STATUS" in existing_cols:
+        edit_col_conf["STATUS"] = cc.SelectboxColumn("STATUS", options=["Not Started", "In Progress", "Completed", "On Hold", "Cancelled"])
+    if "PROGRESS_%" in existing_cols:
+        edit_col_conf["PROGRESS_%"] = cc.NumberColumn("PROGRESS_%", min_value=0, max_value=100, step=1)
+    if "YEAR" in existing_cols:
+        edit_col_conf["YEAR"] = cc.NumberColumn("YEAR", min_value=2020, max_value=2030, step=1)
     for mc in month_cols:
         if mc in existing_cols:
             edit_col_conf[mc] = cc.NumberColumn(mc.upper(), min_value=0, step=1)
 
     # Colonne integer di riepilogo
     if "PLANNED_FTE" in existing_cols:
-        edit_col_conf["PLANNED_FTE"] = cc.NumberColumn("Planned FTE", min_value=0, step=1)
+        edit_col_conf["PLANNED_FTE"] = cc.NumberColumn("PLANNED_FTE", min_value=0, step=1)
     if "ACTUAL_FTE" in existing_cols:
-        edit_col_conf["ACTUAL_FTE"] = cc.NumberColumn("Actual FTE", min_value=0, step=1)
+        edit_col_conf["ACTUAL_FTE"] = cc.NumberColumn("ACTUAL_FTE", min_value=0, step=1)
 
     # Colonna checkbox per eliminare singola riga
     if "DELETE" in existing_cols:
@@ -213,22 +314,32 @@ if proj_selected:
     with save_col1:
         if st.button("Save changes"):
             # Righe da mantenere (non flaggate)
-            edited_df["DELETE"] = edited_df["DELETE"].fillna(False).astype(bool)
-            to_keep = edited_df[~edited_df["DELETE"]].copy()
+            if "DELETE" in edited_df.columns and isinstance(edited_df["DELETE"], pd.Series):
+                edited_df["DELETE"] = edited_df["DELETE"].fillna(False).astype(bool)
+                to_keep = edited_df[~edited_df["DELETE"]].copy()
+            else:
+                to_keep = edited_df.copy()
 
-            df_no_proj = df[df["PROJECT_DESCR"] != proj_selected]
+            df_no_proj = df[df["PROJECT_DESCR"] != proj_selected].copy()
             # Assicuriamo INT per mesi e colonne riepilogo
-            for col_int in month_cols + ["PLANNED_FTE", "ACTUAL_FTE"]:
+            for col_int in month_cols + ["YEAR", "PROGRESS_%", "PLANNED_FTE", "ACTUAL_FTE"]:
                 if col_int in to_keep.columns:
-                    to_keep[col_int] = to_keep[col_int].fillna(0).astype(int)
+                    to_keep[col_int] = pd.to_numeric(to_keep[col_int], errors="coerce").fillna(0).astype(int)
+            if "YEAR_OF_COMPETENCE" in to_keep.columns:
+                to_keep["YEAR_OF_COMPETENCE"] = to_keep["YEAR_OF_COMPETENCE"].astype(str)
             # Aggiungiamo/aggiorniamo YEAR basato su START_DATE
-            to_keep["YEAR"] = pd.to_datetime(to_keep["START_DATE"], errors="coerce").dt.year.astype("Int64")
-            if "YEAR" not in df_no_proj.columns:
-                df_no_proj["YEAR"] = pd.to_datetime(df_no_proj["START_DATE"], errors="coerce").dt.year.astype("Int64")
+            if "START_DATE" in to_keep.columns:
+                start_dates = pd.to_datetime(to_keep["START_DATE"], errors="coerce")
+                to_keep["YEAR"] = start_dates.dt.year.fillna(2024).astype(int)
+            if "YEAR" not in df_no_proj.columns and "START_DATE" in df_no_proj.columns:
+                start_dates = pd.to_datetime(df_no_proj["START_DATE"], errors="coerce")
+                df_no_proj["YEAR"] = start_dates.dt.year.fillna(2024).astype(int)
 
             # Rimuoviamo la colonna di servizio prima di salvare
             to_keep = to_keep.drop(columns=["DELETE"], errors="ignore")
             updated_df = pd.concat([df_no_proj.drop(columns=["DELETE"], errors="ignore"), to_keep], ignore_index=True)
+            if not isinstance(updated_df, pd.DataFrame):
+                updated_df = pd.DataFrame(updated_df)
             save_scheduling(updated_df)
             st.success("Project updated.")
 
@@ -238,6 +349,8 @@ if proj_selected:
 
     with save_col2:
         if st.button("Delete project", type="primary"):
-            df_after = df[df["PROJECT_DESCR"] != proj_selected]
+            df_after = df[df["PROJECT_DESCR"] != proj_selected].copy()
+            if not isinstance(df_after, pd.DataFrame):
+                df_after = pd.DataFrame(df_after)
             save_scheduling(df_after)
             st.success(f"Project '{proj_selected}' deleted.")
