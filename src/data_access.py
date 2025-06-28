@@ -157,4 +157,4 @@ def load_lovs() -> pd.DataFrame:
     except Exception as e:
         print(f"Error loading LoVs: {e}")
         # Return empty DataFrame with expected structure
-        return pd.DataFrame(columns=['Category', 'Value'])
+        return pd.DataFrame(columns=pd.Index(['Category', 'Value']))
