@@ -1,8 +1,22 @@
-streamlit>=1.35
+# Core Streamlit and web framework
+streamlit>=1.35.0
 streamlit-tags>=1.2.8
-pandas>=2.1
-numpy>=1.25
-openpyxl>=3.1
-plotly>=5.22
+
+# Data manipulation and analysis
+pandas>=2.1.0
+numpy>=1.25.0
+
+# Excel file handling
+openpyxl>=3.1.0
+
+# Data visualization
+plotly>=5.22.0
+
+# AI and machine learning
 google-genai>=0.1.0
-python-dotenv>=1.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# Additional utilities
+pathlib2>=2.3.7; python_version < "3.4"
