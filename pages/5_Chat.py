@@ -5,6 +5,9 @@ from google import genai
 from dotenv import load_dotenv
 from src.data_access import load_scheduling
 import difflib
+import base64
+from PIL import Image
+import io
 
 # Carica variabili da .env
 load_dotenv()
@@ -13,11 +16,15 @@ st.set_page_config(page_title="Chat", page_icon="💬", layout="wide")
 
 st.title("💬 Chat Assistant")
 
-st.caption("LLM integration to ask natural-language questions about your schedules.")
+st.caption("LLM integration to ask natural-language questions about your schedules and analyze images.")
 
 # Store chat messages in session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+
+# Store uploaded images in session state
+if 'uploaded_images' not in st.session_state:
+    st.session_state.uploaded_images = []
 
 # Configura API key
 API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
@@ -28,6 +35,10 @@ if API_KEY:
     client = genai.Client(api_key=API_KEY)
 else:
     st.warning("⚠️ Imposta la variabile d'ambiente GOOGLE_API_KEY per utilizzare il chatbot.")
+
+# Nome del chatbot
+BOT_NAME = "Schedulo"
+BOT_DESCRIPTION = "Sono Schedulo, il tuo assistente AI per la pianificazione, l'analisi e la gestione dei progetti e delle risorse. Posso rispondere a domande sui dati di scheduling, generare report, analizzare immagini e aiutarti a ottimizzare il lavoro del team."
 
 def normalize_string(s):
     import re
@@ -153,6 +164,10 @@ def query_scheduling_data(query_description: str) -> str:
     except Exception as e:
         return f"Errore nell'esecuzione della query: {e}"
 
+def encode_image_to_base64(image_bytes):
+    """Converte un'immagine in base64 per l'invio a Gemini."""
+    return base64.b64encode(image_bytes).decode('utf-8')
+
 # =======================
 # PROMPT PER ESTRAZIONE DATI (PRIMA CHIAMATA LLM)
 # =======================
@@ -174,7 +189,7 @@ EXTRACTION_PROMPT = (
     "- gen, feb, mar, ..., dic: FTE allocato per ciascun mese\n"
     "\n"
     "ISTRUZIONI:\n"
-    "1. Analizza la domanda dell'utente.\n"
+    "1. Analizza la domanda dell'utente e le immagini fornite (se presenti).\n"
     "2. Se per rispondere servono dati dal DataFrame, genera comandi Pandas per estrarre i dati rilevanti.\n"
     "3. Se NON servono dati dal DataFrame, rispondi: 'Non è necessaria alcuna estrazione dati.'\n"
     "4. Restituisci SOLO i comandi Pandas/Python necessari, senza spiegazioni.\n"
@@ -198,7 +213,7 @@ EXTRACTION_PROMPT = (
 # PROMPT PER RISPOSTA FINALE (SECONDA CHIAMATA LLM)
 # =======================
 SYSTEM_PROMPT = (
-    "Sei un assistente AI che risponde a domande su una tabella di scheduling progetti.\n"
+    "Sei un assistente AI che risponde a domande su una tabella di scheduling progetti e analizza immagini.\n"
     "La tabella contiene queste colonne principali:\n"
     "- PROJECT_DESCR: Nome del progetto (es: 'CRM Upgrade')\n"
     "- USER: Nome della risorsa/utente (es: 'M. Sorrentino')\n"
@@ -225,6 +240,8 @@ SYSTEM_PROMPT = (
     "\n"
     "---\n"
     "Quando ricevi una domanda, segui queste regole:\n"
+    "- Se sono presenti immagini, analizzale attentamente e descrivi cosa vedi.\n"
+    "- Se le immagini contengono dati di scheduling, tabelle, grafici, cerca di estrarre informazioni utili.\n"
     "- Usa solo i dati forniti nel contesto.\n"
     "- Se la domanda riguarda un utente, mostra: progetti, FTE mensile, PM, clienti, periodo attività, totale FTE, ecc.\n"
     "- Se la domanda riguarda un progetto, mostra: utenti coinvolti, FTE allocato, periodo, stato, PM, cliente, ecc.\n"
@@ -263,75 +280,89 @@ SYSTEM_PROMPT = (
     "IMPORTANTE:\n"
     "Se la domanda richiede un riepilogo, aggrega i dati (es: somma FTE, conta progetti, ecc.).\n"
     "Se la domanda è generica, fornisci statistiche generali (es: numero utenti, progetti, clienti, ecc.).\n"
+    "Se sono presenti immagini, analizzale e fornisci insights basati su quello che vedi.\n"
     "\n"
     "Rispondi sempre in italiano, in modo chiaro e strutturato."
 )
 
-def generate_llm_response(user_input: str) -> str:
+def generate_llm_response(user_input: str, images: list = []) -> str:
     """
-    Orchestrazione RAG a due step:
-    1. Prima chiamata LLM (Gemini Flash 2.5) con domanda utente e struttura dati: il modello decide se servono dati dal DataFrame e, se sì, suggerisce i comandi Pandas da eseguire.
-    2. Se il modello suggerisce query, il backend le esegue e passa i risultati come contesto a una seconda chiamata LLM per la risposta finale.
-    3. Se non servono dati, la seconda chiamata LLM riceve solo domanda e struttura dati.
+    Orchestrazione RAG a due step con supporto immagini:
+    1. Prima chiamata LLM (Gemini Flash 2.5) con domanda utente, immagini e struttura dati
+    2. Se il modello suggerisce query, il backend le esegue e passa i risultati come contesto a una seconda chiamata LLM
+    3. Se non servono dati, la seconda chiamata LLM riceve solo domanda, immagini e struttura dati
     """
+    # Risposta custom se l'utente chiede il nome del bot
+    name_queries = [
+        "come ti chiami", "qual è il tuo nome", "chi sei", "come si chiama il bot", "nome del bot", "come ti posso chiamare", "presentati", "parlami di te"
+    ]
+    if any(q in user_input.lower() for q in name_queries):
+        return f"{BOT_DESCRIPTION} Il mio nome è **{BOT_NAME}**."
+
     if client is None:
         return "⚠️ API key mancante. Impossibile contattare il modello."
 
     try:
-        # 1. Prepara il prompt per la prima chiamata LLM (estrazione query)
-        table_structure = get_table_structure()
-        extraction_prompt = f"""
+        # 1. Prepara il contenuto per la prima chiamata LLM (estrazione query)
+        parts = []
+        text_content = f"""
 {EXTRACTION_PROMPT}
 
 Domanda utente: {user_input}
 Struttura dati:
-{table_structure}
+{get_table_structure()}
 """
+        parts.append(text_content)
+        if images:
+            for img_bytes, mime_type in images:
+                parts.append({
+                    "inline_data": {
+                        "data": encode_image_to_base64(img_bytes),
+                        "mime_type": mime_type
+                    }
+                })
         extraction_response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=extraction_prompt,
+            contents=parts,
         )
         extraction_code = extraction_response.text.strip() if (hasattr(extraction_response, 'text') and extraction_response.text is not None) else ""
-
-        # 2. Esegui la query solo se il modello NON dice che non serve
         extracted_data = None
         if extraction_code and "Non è necessaria alcuna estrazione dati" not in extraction_code:
-            # Sicurezza: esegui solo codice che contiene 'df' e non comandi pericolosi
             try:
-                # Esegui in uno scope sicuro
                 local_vars = {'df': load_scheduling()}
                 exec(extraction_code, {}, local_vars)
-                # Prova a recuperare variabili di output comuni
                 if 'result' in local_vars:
                     extracted_data = local_vars['result']
                 elif 'user_rows' in local_vars:
                     extracted_data = local_vars['user_rows']
                 else:
-                    # Se il codice termina con un dizionario, prendi l'ultimo oggetto
                     extracted_data = {k: v for k, v in local_vars.items() if k not in ['df']}
             except Exception as e:
-                # Fallback: usa la funzione query_scheduling_data esistente
                 extracted_data = query_scheduling_data(user_input)
-
-        # 3. Se non abbiamo dati estratti, usa il fallback
         if extracted_data is None:
             extracted_data = query_scheduling_data(user_input)
-
-        # 4. Prepara il prompt per la seconda chiamata LLM (risposta finale)
-        final_prompt = f"""
+        final_parts = []
+        final_text = f"""
 {SYSTEM_PROMPT}
 
 Domanda utente: {user_input}
 Struttura dati:
-{table_structure}
+{get_table_structure()}
 """
         if extracted_data is not None:
-            final_prompt += f"\nRisultati estratti dal DataFrame:\n{extracted_data}\n"
-
-        # 5. Chiamata finale al LLM per la risposta all'utente
+            final_text += f"\nRisultati estratti dal DataFrame:\n{extracted_data}\n"
+        final_parts.append(final_text)
+        if images:
+            for img_bytes, mime_type in images:
+                final_parts.append({
+                    "inline_data": {
+                        "data": encode_image_to_base64(img_bytes),
+                        "mime_type": mime_type
+                    }
+                })
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=final_prompt,
+            contents=final_parts,
         )
         if response and hasattr(response, 'text') and response.text:
             return response.text.strip()
@@ -343,20 +374,72 @@ Struttura dati:
 # Funzione per pulire la conversazione
 def clear_conversation():
     st.session_state.messages = []
+    st.session_state.uploaded_images = []
+
+# Upload immagini in alto
+st.subheader("📷 Carica Immagini")
+uploaded_files = st.file_uploader(
+    "Seleziona immagini da analizzare",
+    type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'],
+    accept_multiple_files=True,
+    help="Carica screenshot, grafici, tabelle o documenti da analizzare"
+)
+
+# Gestisci le immagini caricate
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        if uploaded_file not in [img['file'] for img in st.session_state.uploaded_images]:
+            image_bytes = uploaded_file.read()
+            uploaded_file.seek(0)
+            mime_type = f"image/{uploaded_file.name.split('.')[-1].lower()}"
+            if mime_type == "image/jpg":
+                mime_type = "image/jpeg"
+            st.session_state.uploaded_images.append({
+                'file': uploaded_file,
+                'name': uploaded_file.name,
+                'bytes': image_bytes,
+                'mime_type': mime_type
+            })
+
+if st.session_state.uploaded_images:
+    st.subheader("🖼️ Immagini Caricate")
+    for i, img_data in enumerate(st.session_state.uploaded_images):
+        col_img1, col_img2 = st.columns([3, 1])
+        with col_img1:
+            st.image(img_data['file'], caption=img_data['name'], width=150)
+        with col_img2:
+            if st.button("❌", key=f"remove_img_{i}", help="Rimuovi immagine"):
+                st.session_state.uploaded_images.pop(i)
+                st.rerun()
 
 # Pulsante per pulire la conversazione
-if st.button("🗑️ Clear Conversation", help="Clear all chat history"):
+if st.button("🗑️ Clear Conversation", help="Clear all chat history and images"):
     clear_conversation()
     st.rerun()
 
-# Input for new message
+# CHAT: messaggi e input nel body principale
+st.subheader("💬 Chat")
+
+# Render all messages
+for message in st.session_state.messages:
+    with st.chat_message(message['role']):
+        st.write(message['content'])
+        if message['role'] == 'user' and 'images' in message and message['images']:
+            st.write("📷 **Immagini analizzate:**")
+            for i, (img_bytes, mime_type) in enumerate(message['images']):
+                st.image(img_bytes, caption=f"Immagine {i+1}", width=200)
+
+# Input per nuovo messaggio (sempre in basso)
 prompt = st.chat_input("Ask me anything...", key="chat_input")
 if prompt:
-    st.session_state.messages.append({'role': 'user', 'content': prompt})
-    # Ottieni risposta dal modello
-    assistant_reply = generate_llm_response(prompt)
+    current_images = []
+    if st.session_state.uploaded_images:
+        current_images = [(img['bytes'], img['mime_type']) for img in st.session_state.uploaded_images]
+    st.session_state.messages.append({
+        'role': 'user',
+        'content': prompt,
+        'images': current_images
+    })
+    assistant_reply = generate_llm_response(prompt, current_images)
     st.session_state.messages.append({'role': 'assistant', 'content': assistant_reply})
-
-# Render all messages (after possibly adding new ones)
-for message in st.session_state.messages:
-    st.chat_message(message['role']).write(message['content']) 
+    st.rerun() 
