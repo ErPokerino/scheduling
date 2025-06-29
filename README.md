@@ -1,113 +1,209 @@
 # Scheduling - Resource Planning App 📅
 
-**A Streamlit web application to manage and monitor project resource allocation for the Data Intelligence area.**
+**A comprehensive Streamlit web application for managing and monitoring project resource allocation with AI-powered insights and advanced analytics.**
 
-## Key Features
-- **Project Management:** Add new projects, assign team members, and update details with comprehensive metadata.
-- **Resource Allocation:** Record each person's load (FTE) for every month, years ahead with interactive data editing.
-- **Filterable Schedule View:** Slice the table by project, user, year, status, and other dimensions.
-- **Analytics Dashboard:** Pie chart view of FTE distribution and monthly workload per user with interactive filters.
-- **Chat Assistant (Gemini):** Conversational assistant that leverages Google Gemini Flash 2.5 to answer questions about the data and how to use the app.
+## 🚀 Key Features
 
-## Quick Start
+### 🤖 AI-Powered Chat Assistant
+- **Schedulo AI:** Intelligent chatbot powered by Google Gemini 2.5 Flash
+- **Multimodal Analysis:** Upload and analyze images (screenshots, charts, documents)
+- **Natural Language Queries:** Ask questions about your data in plain English
+- **Context Awareness:** Understands your scheduling data structure and provides relevant insights
+- **Conversation Memory:** Maintains context across chat sessions
+
+### 📊 Advanced Analytics Dashboard
+- **KPI Dashboard:** Real-time metrics (projects, users, clients, PMs, FTE allocation)
+- **Specific Reports:** Detailed analysis by Project, User, PM, and Client
+- **Interactive Visualizations:** Pie charts, trend lines, heatmaps, and data tables
+- **Dynamic Filtering:** Filter by year, users, dimensions, and custom criteria
+- **FTE Breakdown:** Monthly allocation analysis and capacity planning
+
+### 📋 Project Management
+- **Comprehensive CRUD:** Add, edit, delete projects with full metadata
+- **Resource Allocation:** Interactive FTE allocation per user and month
+- **Data Validation:** Ensures data integrity and proper formatting
+- **User Suggestions:** Auto-complete based on existing data
+- **Excel Integration:** Seamless data persistence with automatic backups
+
+### 🔍 Smart Data Handling
+- **Robust Error Handling:** Automatic recovery from corrupted files
+- **Data Type Management:** Intelligent conversion and validation
+- **Backup System:** Automatic timestamped backups
+- **Sample Data:** Auto-generation of example data for new installations
+
+## 🛠️ Quick Start
+
+### Prerequisites
+- Python 3.8+
+- Google API Key for Gemini AI
+
+### Installation
 
 ```bash
+# Clone the repository
 git clone https://github.com/YOUR_ORG/scheduling.git
 cd scheduling
+
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate   # on Windows use venv\Scripts\activate
+source venv/bin/activate   # On Windows: venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
 # Set up environment variables
-cp .env.example .env  # then edit with your Google API key
+cp .env.example .env  # Then edit with your Google API key
 # or set GOOGLE_API_KEY environment variable
 
+# Run the application
 streamlit run Scheduling.py
 ```
 
-## Repository Structure
+### Environment Setup
+
+#### Required Environment Variables
+```bash
+GOOGLE_API_KEY=your_google_api_key_here
+```
+
+#### API Key Setup
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add it to your `.env` file or set as environment variable
+
+## 📁 Repository Structure
 
 ```
 scheduling/
 ├── Scheduling.py              # Main Streamlit application
 ├── pages/
 │   ├── 2_Projects.py         # Project management and CRUD operations
-│   ├── 4_Analytics.py        # Analytics and visualization dashboard
-│   └── 5_Chat.py             # AI chat assistant with Gemini
+│   ├── 4_Analytics.py        # Advanced analytics and visualization dashboard
+│   └── 5_Chat.py             # AI chat assistant with Gemini (multimodal)
 ├── src/
 │   ├── __init__.py
 │   ├── data_access.py        # Excel file operations and data persistence
 │   ├── models.py             # Data models and schemas
 │   └── utils.py              # Utility functions and helpers
 ├── data/                     # Excel data storage
-├── requirements.txt
-└── README.md
+├── requirements.txt          # Python dependencies
+├── TODO.md                   # Development roadmap and progress
+└── README.md                 # This file
 ```
 
-## Data Model Overview
+## 📊 Data Model Overview
 
-The application is built around the `Scheduling` sheet of the Excel workbook, which includes attributes such as:
+The application is built around the `Scheduling` sheet of the Excel workbook, which includes:
 
-- **Project Information:** `PROJECT_DESCR`, `CLIENT`, `PM_SM`, `SOW_ID`, `JIRA_KEY`
-- **Classification:** `ITEM_TYPE`, `DELIVERY_TYPE`, `WORKSTREAM`, `PROJECT_STREAM`, `AREA_CC`
-- **Timeline:** `START_DATE`, `END_DATE`, `YEAR`, `YEAR_OF_COMPETENCE`
-- **Resource Management:** `USER`, `JOB`, `PLANNED_FTE`, `ACTUAL_FTE`, `STATUS`, `PROGRESS_%`
-- **Monthly Allocation:** `gen`, `feb`, `mar`, `apr`, `mag`, `giu`, `lug`, `ago`, `set`, `ott`, `nov`, `dic`
+### Project Information
+- `PROJECT_DESCR`: Project name and description
+- `CLIENT`: Client name
+- `PM_SM`: Project Manager/Scrum Master
+- `SOW_ID`, `JIRA_KEY`: Contract and ticket references
 
-Allowed values for many of these fields are defined in the **LoVs** sheet (list‑of‑values).
+### Classification
+- `ITEM_TYPE`: Activity type (Development, Analysis, Testing, etc.)
+- `DELIVERY_TYPE`: Delivery type (Internal, External, etc.)
+- `WORKSTREAM`, `PROJECT_STREAM`, `AREA_CC`: Organizational classification
 
-## Features in Detail
+### Timeline
+- `START_DATE`, `END_DATE`: Project start and end dates
+- `YEAR`, `YEAR_OF_COMPETENCE`: Year tracking
 
-### 📋 Projects Page
+### Resource Management
+- `USER`: Team member name
+- `JOB`: Job role/position
+- `PLANNED_FTE`, `ACTUAL_FTE`: Planned vs actual FTE allocation
+- `STATUS`: Project status (Not Started, In Progress, Completed, etc.)
+- `PROGRESS_%`: Project completion percentage
+
+### Monthly Allocation
+- `gen`, `feb`, `mar`, `apr`, `mag`, `giu`, `lug`, `ago`, `set`, `ott`, `nov`, `dic`: Monthly FTE allocation
+
+Allowed values for many fields are defined in the **LoVs** sheet (list-of-values).
+
+## 🎯 Features in Detail
+
+### 🤖 AI Chat Assistant (Schedulo)
+- **Natural Language Processing:** Ask questions like "Show me all projects for M. Sorrentino" or "Which projects are behind schedule?"
+- **Image Analysis:** Upload screenshots, charts, or documents for AI analysis
+- **Contextual Responses:** AI understands your data structure and provides relevant insights
+- **Interactive Help:** Get guidance on using the application and interpreting data
+
+### 📈 Advanced Analytics
+- **Dashboard KPI:** Overview metrics with real-time updates
+- **Project Reports:** Detailed analysis by specific project with FTE trends
+- **User Reports:** Individual resource analysis with project breakdown
+- **PM Reports:** Project manager workload and resource management insights
+- **Client Reports:** Client-specific project and resource analysis
+- **Interactive Charts:** Zoom, filter, and explore data visually
+
+### 📋 Project Management
 - **Add New Projects:** Comprehensive form with all project metadata
 - **Resource Allocation:** Dynamic FTE allocation per user and month
 - **Data Validation:** Ensures data integrity and proper formatting
 - **User Suggestions:** Auto-complete based on existing data
+- **Bulk Operations:** Efficient data entry and management
 
-### 📈 Analytics Page
-- **FTE Distribution:** Interactive pie charts by various dimensions
-- **Monthly Workload:** Line charts showing FTE trends per user
-- **Year Filtering:** Analyze data by specific years
-- **User Filtering:** Focus on specific team members
+## 🔧 Configuration
 
-### 💬 Chat Assistant
-- **Natural Language Queries:** Ask questions about your data in plain English
-- **Gemini Integration:** Powered by Google's latest AI model
-- **Context Awareness:** Understands your scheduling data structure
-- **Interactive Help:** Get guidance on using the application
-
-## Environment Setup
-
-### Required Environment Variables
-```bash
-GOOGLE_API_KEY=your_google_api_key_here
-```
-
-### API Key Setup
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Add it to your `.env` file or set as environment variable
-
-## Data Storage
-
+### Data Storage
 The application uses Excel files for data persistence:
 - **Primary Data:** `data/SCHEDULING.xlsx` (main scheduling data)
 - **Backup System:** Automatic backups with timestamps
 - **Data Integrity:** Error handling and recovery mechanisms
 
-## Roadmap
+### Customization
+- **Themes:** Customizable appearance via Streamlit configuration
+- **Data Sources:** Extensible to support other data formats
+- **AI Models:** Configurable AI provider and model selection
 
-1. **v0.1 (Current)** – Streamlit application with Excel backend and Gemini integration
-2. **v0.2** – Persist data to SQLite, add authentication via Streamlit‑Auth
-3. **v0.3** – Enhanced AI features and advanced analytics
-4. **v1.0** – Containerisation with Docker and CI/CD to Cloud Run / ECS
+## 🚀 Roadmap
 
-## Troubleshooting
+### Current Version (v0.2)
+- ✅ Streamlit application with Excel backend
+- ✅ Google Gemini AI integration
+- ✅ Advanced analytics dashboard
+- ✅ Multimodal image analysis
+- ✅ Robust data handling and validation
+
+### Upcoming Features (v0.3)
+- 🔄 Authentication and role-based access
+- 🔄 Advanced search and filtering
+- 🔄 Export functionality (CSV, Excel, PDF)
+- 🔄 Real-time notifications
+- 🔄 Mobile-responsive design
+
+### Future Versions (v1.0+)
+- 📋 SQLite/PostgreSQL database backend
+- 📋 Docker containerization
+- 📋 Cloud deployment (Streamlit Community Cloud, Azure, AWS)
+- 📋 API endpoints for external integrations
+- 📋 Advanced AI features (predictions, auto-scheduling)
+
+## 🛠️ Troubleshooting
 
 ### Common Issues
-- **Excel File Errors:** The app will automatically create a new file with sample data if the existing one is corrupted
-- **API Key Issues:** Ensure your Google API key is properly set in environment variables
-- **Data Type Errors:** The app handles data type conversion automatically
+
+#### Excel File Errors
+- The app automatically creates a new file with sample data if the existing one is corrupted
+- Check the `data/` folder for backup files
+- Restore from backup by copying the backup file to `SCHEDULING.xlsx`
+
+#### API Key Issues
+- Ensure your Google API key is properly set in environment variables
+- Verify the key has access to Gemini API
+- Check API quotas and limits
+
+#### Data Type Errors
+- The app handles data type conversion automatically
+- Ensure Excel file format is compatible (xlsx)
+- Check for special characters in data fields
+
+#### Performance Issues
+- Large datasets may require optimization
+- Consider filtering data for better performance
+- Monitor memory usage with large Excel files
 
 ### Data Recovery
 If your Excel file becomes corrupted:
@@ -115,6 +211,39 @@ If your Excel file becomes corrupted:
 2. The app will automatically create a new file with sample data
 3. You can restore from backup by copying the backup file to `SCHEDULING.xlsx`
 
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+# Install development dependencies
+pip install -r requirements.txt
+
+# Run tests
+pytest
+
+# Format code
+black .
+
+# Lint code
+flake8
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Streamlit** for the amazing web framework
+- **Google Gemini** for powerful AI capabilities
+- **Plotly** for interactive visualizations
+- **Pandas** for data manipulation
+- **OpenPyXL** for Excel file handling
+
 ---
 
-_Made with ❤️ by Data Intelligence._
+**Made with ❤️ by Data Intelligence Team**
+
+*For support and questions, please open an issue on GitHub or contact the development team.*
