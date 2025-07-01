@@ -9,6 +9,7 @@ import base64
 from PIL import Image
 import io
 
+
 # Carica variabili da .env
 load_dotenv()
 
@@ -17,6 +18,27 @@ st.set_page_config(page_title="Chat", page_icon="💬", layout="wide")
 st.title("💬 Chat Assistant")
 
 st.caption("LLM integration to ask natural-language questions about your schedules and analyze images.")
+
+# Istruzioni per l'uso
+with st.expander("ℹ️ Come usare la chat", expanded=False):
+    st.markdown("""
+    **✍️ Input Testuale:**
+    - Scrivi direttamente nella casella di testo
+    - Supporta domande complesse e multi-riga
+    
+    **📷 Analisi Immagini:**
+    - Carica immagini nella sezione superiore
+    - Chiedi domande sulle immagini caricate
+    - Il bot analizzerà automaticamente il contenuto
+    
+    **💡 Suggerimenti:**
+    - "Dammi info su [nome utente]"
+    - "Quali progetti sono in stato [stato]?"
+    - "Quanti FTE sono allocati a [mese]?"
+    - "Chi lavora per il cliente [nome cliente]?"
+    - "Mostrami i progetti completati"
+    - "Qual è il progetto con più FTE?"
+    """)
 
 # Store chat messages in session state
 if 'messages' not in st.session_state:
@@ -167,6 +189,10 @@ def query_scheduling_data(query_description: str) -> str:
 def encode_image_to_base64(image_bytes):
     """Converte un'immagine in base64 per l'invio a Gemini."""
     return base64.b64encode(image_bytes).decode('utf-8')
+
+
+
+
 
 # =======================
 # PROMPT PER ESTRAZIONE DATI (PRIMA CHIAMATA LLM)
@@ -429,7 +455,7 @@ for message in st.session_state.messages:
             for i, (img_bytes, mime_type) in enumerate(message['images']):
                 st.image(img_bytes, caption=f"Immagine {i+1}", width=200)
 
-# Input per nuovo messaggio (sempre in basso)
+# Input per nuovo messaggio
 prompt = st.chat_input("Ask me anything...", key="chat_input")
 if prompt:
     current_images = []

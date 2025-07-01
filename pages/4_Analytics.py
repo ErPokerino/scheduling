@@ -222,4 +222,4 @@ if report_type == "Report per Cliente":
             fte_proj.columns = ["Progetto", "FTE"]
             fig = px.bar(fte_proj, x="Progetto", y="FTE", title="FTE per Progetto")
             st.plotly_chart(fig, use_container_width=True)
-        st.dataframe(df_client[[c for c in ["USER","PROJECT_DESCR","PM_SM","PLANNED_FTE","ACTUAL_FTE","STATUS","PROGRESS_%"] if c in df_client.columns] + month_cols])
+        st.dataframe(df_client[[c for c in ["USER","PROJECT_DESCR","PM_SM","PLANNED_FTE","ACTUAL_FTE","STATUS","PROGRESS_%"] if c in df_client.columns] + month_cols]) 
