@@ -21,6 +21,8 @@ python-dotenv>=1.0.0
 # Image processing for chat
 Pillow>=10.0.0
 
+
+
 # Additional utilities
 pathlib2>=2.3.7; python_version < "3.4"
 

@@ -198,6 +198,8 @@ The application uses Excel files for data persistence:
 #### Data Type Errors
 - The app handles data type conversion automatically
 - Ensure Excel file format is compatible (xlsx)
+
+
 - Check for special characters in data fields
 
 #### Performance Issues
