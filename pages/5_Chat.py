@@ -138,52 +138,124 @@ def query_scheduling_data(query_description: str) -> str:
         s = re.sub(r'[^a-z0-9 ]', '', s)
         return s
 
+    column_map = {
+        'status': ['status', 'stato', 'ongoing', 'in progress', 'completato', 'completed', 'on hold', 'cancellato', 'cancelled', 'chiusi', 'chiuso', 'conclusi', 'terminati', 'closed'],
+        'client': ['client', 'cliente'],
+        'pm_sm': ['pm', 'project manager', 'scrum master', 'pm_sm'],
+        'user': ['user', 'utente', 'risorsa', 'persona', 'collaboratore'],
+        'project_descr': ['progetto', 'project', 'project_descr', 'nome progetto', 'descrizione progetto'],
+        'item_type': ['item_type', 'tipologia', 'tipo attività'],
+        'delivery_type': ['delivery_type', 'tipo delivery'],
+    }
+    priority = ['status', 'client', 'pm_sm', 'user', 'project_descr', 'item_type', 'delivery_type']
+
+    def make_table(rows):
+        # Raggruppa per progetto e mostra solo una riga per PROJECT_DESCR
+        header = "| Progetto | PM | Cliente |\n|---|---|---|"
+        lines = []
+        if 'PROJECT_DESCR' in rows.columns:
+            grouped = rows.groupby('PROJECT_DESCR').first().reset_index()
+            for _, row in grouped.iterrows():
+                descr = str(row['PROJECT_DESCR']) if 'PROJECT_DESCR' in row else ''
+                pm = str(row['PM_SM']) if 'PM_SM' in row else ''
+                client = str(row['CLIENT']) if 'CLIENT' in row else ''
+                lines.append(f"| {descr} | {pm} | {client} |")
+        else:
+            for _, row in rows.iterrows():
+                descr = str(row['PROJECT_DESCR']) if 'PROJECT_DESCR' in row else ''
+                pm = str(row['PM_SM']) if 'PM_SM' in row else ''
+                client = str(row['CLIENT']) if 'CLIENT' in row else ''
+                lines.append(f"| {descr} | {pm} | {client} |")
+        return header + "\n" + "\n".join(lines)
+
+    def make_bullet_list(items, title=None):
+        out = f"{title}\n" if title else ""
+        for item in items:
+            out += f"- {item}\n"
+        return out
+
+    def list_to_table_or_bullets(lst):
+        # Se la lista contiene tuple o dict, prova a fare una tabella
+        if lst and (isinstance(lst[0], (tuple, list)) and len(lst[0]) >= 2):
+            # Tabella generica
+            header = "| " + " | ".join([f"Col{i+1}" for i in range(len(lst[0]))]) + " |\n"
+            header += "|" + "---|" * len(lst[0])
+            lines = ["| " + " | ".join(str(x) for x in row) + " |" for row in lst]
+            return header + "\n" + "\n".join(lines)
+        elif lst and isinstance(lst[0], dict):
+            # Tabella con chiavi del dict
+            keys = list(lst[0].keys())
+            header = "| " + " | ".join(keys) + " |\n"
+            header += "|" + "---|" * len(keys)
+            lines = ["| " + " | ".join(str(row[k]) for k in keys) + " |" for row in lst]
+            return header + "\n" + "\n".join(lines)
+        else:
+            return make_bullet_list(lst)
+
     try:
         df = load_scheduling()
-        user_col = "USER" if "USER" in df.columns else "user"
-        if user_col not in df.columns:
-            return "Nessuna colonna USER trovata nei dati."
-        query_norm = normalize(query_description)
-        df["USER_NORM"] = df[user_col].apply(normalize)
-        user_rows = df[df["USER_NORM"].apply(lambda x: query_norm in x or x in query_norm)]
-        if not user_rows.empty:
-            found_user = user_rows.iloc[0][user_col]
-            # Forza Series per .dropna() e .unique()
-            def safe_unique(col):
-                return pd.Series(col).dropna().astype(str).unique().tolist()
-            projects = safe_unique(user_rows["PROJECT_DESCR"]) if "PROJECT_DESCR" in user_rows.columns else []
-            pm_list = safe_unique(user_rows["PM_SM"]) if "PM_SM" in user_rows.columns else []
-            client_list = safe_unique(user_rows["CLIENT"]) if "CLIENT" in user_rows.columns else []
-            month_prefixes = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"]
-            month_cols = [c for c in df.columns if c[:3].lower() in month_prefixes and not c.lower().endswith("1")]
-            fte_per_month = user_rows[month_cols].sum().to_dict() if month_cols else {}
-            total_fte = sum(fte_per_month.values()) if fte_per_month else 0
-            # Gestione robusta periodo attività
-            period = ""
-            if "START_DATE" in user_rows.columns and "END_DATE" in user_rows.columns:
-                try:
-                    start_dates = pd.to_datetime(user_rows["START_DATE"], errors="coerce")
-                    end_dates = pd.to_datetime(user_rows["END_DATE"], errors="coerce")
-                    if hasattr(start_dates, 'min') and hasattr(end_dates, 'max'):
-                        start_min = start_dates.min()
-                        end_max = end_dates.max()
-                        if isinstance(start_min, pd.Timestamp) and isinstance(end_max, pd.Timestamp) and pd.notna(start_min) and pd.notna(end_max):
-                            period = f"{start_min.strftime('%Y-%m-%d')} → {end_max.strftime('%Y-%m-%d')}"
-                except Exception:
-                    period = ""
-            return (
-                f"Utente: {found_user}\n"
-                f"- Progetti: {', '.join(projects) if projects else 'Nessuno'}\n"
-                f"- PM: {', '.join(pm_list) if pm_list else 'Nessuno'}\n"
-                f"- Clienti: {', '.join(client_list) if client_list else 'Nessuno'}\n"
-                f"- FTE totale: {total_fte}\n"
-                f"- FTE per mese: {', '.join([f'{k}={v}' for k,v in fte_per_month.items()]) if fte_per_month else 'Nessuno'}\n"
-                f"- Periodo: {period if period else 'N/A'}\n"
-            )
+        question = normalize(query_description)
+        filter_col = None
+        filter_value = None
+        for col_key in priority:
+            for synonym in column_map[col_key]:
+                if synonym in question:
+                    filter_col = col_key.upper() if col_key != 'project_descr' else 'PROJECT_DESCR'
+                    match = re.search(synonym + r"[\s:]*([\w .-]+)", question)
+                    if match:
+                        filter_value = match.group(1).strip()
+                    else:
+                        filter_value = question.split()[-1]
+                    break
+            if filter_col:
+                break
+        if not filter_col:
+            if 'ongoing' in question or 'on going' in question:
+                filter_col = 'STATUS'
+                filter_value = 'ON GOING'
+            elif 'in progress' in question:
+                filter_col = 'STATUS'
+                filter_value = 'IN PROGRESS'
+            elif 'completed' in question or 'completato' in question or 'chiusi' in question or 'chiuso' in question or 'conclusi' in question or 'terminati' in question or 'closed' in question:
+                filter_col = 'STATUS'
+                filter_value = 'CLOSED'
+        if not filter_col:
+            return ("Non ho capito su quale campo filtrare. Puoi chiedere per: status, cliente, project manager, utente, progetto, tipologia, delivery type. ")
+        if filter_col not in df.columns:
+            return f"La colonna '{filter_col}' non esiste nei dati. Colonne disponibili: {', '.join(df.columns)}"
+        norm_col = df[filter_col].astype(str).apply(normalize)
+        norm_value = normalize(filter_value)
+        filtered = df[norm_col.str.contains(norm_value, na=False)]
+        if not filtered.empty:
+            if filter_col in ['STATUS', 'CLIENT', 'PM_SM', 'USER', 'PROJECT_DESCR']:
+                return f"Progetti trovati per {filter_col} = '{filter_value}':\n" + make_table(filtered)
+            else:
+                return f"Risultati trovati:\n" + filtered.head(5).to_string(index=False)
         else:
-            users_list = pd.Series(df[user_col]).dropna().astype(str).unique().tolist()
-            return "Utente non trovato. Utenti disponibili: " + ", ".join(users_list[:10])
+            available = df[filter_col].dropna().unique().tolist()
+            return f"Nessun risultato trovato per {filter_col} = '{filter_value}'. Valori disponibili: {', '.join(str(a) for a in available[:10])}"
     except Exception as e:
+        # Fallback: se per errore viene generato un dict/list, convertilo in testo leggibile
+        import traceback
+        import sys
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        if isinstance(e, dict):
+            for k, v in e.items():
+                if isinstance(v, list):
+                    return list_to_table_or_bullets(v,)
+            return str(e)
+        elif isinstance(e, list):
+            return list_to_table_or_bullets(e)
+        # Se il messaggio di errore contiene una lista, estraila e formatta
+        tb_str = traceback.format_exc()
+        if '[' in str(e) and ']' in str(e):
+            try:
+                import ast
+                lst = ast.literal_eval(str(e))
+                if isinstance(lst, list):
+                    return list_to_table_or_bullets(lst)
+            except Exception:
+                pass
         return f"Errore nell'esecuzione della query: {e}"
 
 def encode_image_to_base64(image_bytes):
@@ -317,6 +389,7 @@ def generate_llm_response(user_input: str, images: list = []) -> str:
     1. Prima chiamata LLM (Gemini Flash 2.5) con domanda utente, immagini e struttura dati
     2. Se il modello suggerisce query, il backend le esegue e passa i risultati come contesto a una seconda chiamata LLM
     3. Se non servono dati, la seconda chiamata LLM riceve solo domanda, immagini e struttura dati
+    4. (MODIFICA) Se la domanda riguarda una colonna chiave, la funzione di query generalizzata viene SEMPRE chiamata e la risposta è basata sui dati reali.
     """
     # Risposta custom se l'utente chiede il nome del bot
     name_queries = [
@@ -327,6 +400,20 @@ def generate_llm_response(user_input: str, images: list = []) -> str:
 
     if client is None:
         return "⚠️ API key mancante. Impossibile contattare il modello."
+
+    # Logica per identificare se la domanda riguarda una colonna chiave
+    def question_targets_key_column(question: str) -> bool:
+        question = question.lower()
+        key_words = [
+            'status', 'stato', 'ongoing', 'in progress', 'completato', 'completed', 'on hold', 'cancellato', 'cancelled',
+            'client', 'cliente',
+            'pm', 'project manager', 'scrum master', 'pm_sm',
+            'user', 'utente', 'risorsa', 'persona', 'collaboratore',
+            'progetto', 'project', 'project_descr', 'nome progetto', 'descrizione progetto',
+            'item_type', 'tipologia', 'tipo attività',
+            'delivery_type', 'tipo delivery'
+        ]
+        return any(k in question for k in key_words)
 
     try:
         # 1. Prepara il contenuto per la prima chiamata LLM (estrazione query)
@@ -353,7 +440,10 @@ Struttura dati:
         )
         extraction_code = extraction_response.text.strip() if (hasattr(extraction_response, 'text') and extraction_response.text is not None) else ""
         extracted_data = None
-        if extraction_code and "Non è necessaria alcuna estrazione dati" not in extraction_code:
+        # (MODIFICA) Se la domanda riguarda una colonna chiave, chiama SEMPRE la funzione di query generalizzata
+        if question_targets_key_column(user_input):
+            extracted_data = query_scheduling_data(user_input)
+        elif extraction_code and "Non è necessaria alcuna estrazione dati" not in extraction_code:
             try:
                 local_vars = {'df': load_scheduling()}
                 exec(extraction_code, {}, local_vars)
@@ -365,7 +455,7 @@ Struttura dati:
                     extracted_data = {k: v for k, v in local_vars.items() if k not in ['df']}
             except Exception as e:
                 extracted_data = query_scheduling_data(user_input)
-        if extracted_data is None:
+        else:
             extracted_data = query_scheduling_data(user_input)
         final_parts = []
         final_text = f"""
@@ -391,9 +481,12 @@ Struttura dati:
             contents=final_parts,
         )
         if response and hasattr(response, 'text') and response.text:
+            # Se la risposta del modello non contiene dati reali, mostra direttamente i risultati estratti
+            if "Risultati estratti dal DataFrame" in final_text or not response.text.strip():
+                return extracted_data if isinstance(extracted_data, str) else str(extracted_data)
             return response.text.strip()
         else:
-            return "❌ Risposta vuota dal modello."
+            return extracted_data if isinstance(extracted_data, str) else str(extracted_data)
     except Exception as e:
         return f"❌ Errore durante la chiamata al modello: {e}"
 
