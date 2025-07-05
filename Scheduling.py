@@ -3,9 +3,60 @@ import pandas as pd
 from src.data_access import load_scheduling, save_scheduling
 from src.utils import filter_dataframe
 import io
+import os
+from dotenv import load_dotenv
+
+# Carica variabili d'ambiente
+load_dotenv()
 
 st.set_page_config(page_title="Scheduling", page_icon="📅", layout="wide")
 
+# =======================
+# SISTEMA DI LOGIN
+# =======================
+# Codice di accesso (in produzione dovrebbe essere in .env)
+ACCESS_CODE = os.getenv("ACCESS_CODE", "warhammer")
+
+# Inizializza session state per login
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+# Se non autenticato, mostra login
+if not st.session_state.authenticated:
+    st.title("🔐 Accesso Scheduling")
+    st.markdown("---")
+    
+    # Centra il form di login
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("### Inserisci il codice di accesso")
+        
+        # Campo password nascosto
+        access_code = st.text_input(
+            "Codice di accesso",
+            type="password",
+            placeholder="Inserisci il codice...",
+            help="Contatta l'amministratore per ottenere il codice di accesso"
+        )
+        
+        if st.button("🔓 Accedi", type="primary", use_container_width=True):
+            if access_code == ACCESS_CODE:
+                st.session_state.authenticated = True
+                st.success("✅ Accesso autorizzato!")
+                st.rerun()
+            else:
+                st.error("❌ Codice di accesso non valido!")
+        
+        # Informazioni aggiuntive
+        st.markdown("---")
+        st.info("💡 **Informazioni:** Questa applicazione richiede un codice di accesso per garantire la sicurezza dei dati di scheduling.")
+        
+        # Blocca l'esecuzione del resto dell'app
+        st.stop()
+
+# =======================
+# CONTENUTO PRINCIPALE (solo se autenticato)
+# =======================
 st.title("📅 Scheduling – Resource Planning")
 
 # Caricamento dati di schedulazione
@@ -89,6 +140,13 @@ with col2:
                     
         except Exception as e:
             st.error(f"❌ Errore nel caricamento del file: {str(e)}")
+
+# Pulsante logout
+col1, col2, col3 = st.columns([2, 1, 1])
+with col3:
+    if st.button("🚪 Logout", type="secondary"):
+        st.session_state.authenticated = False
+        st.rerun()
 
 st.markdown("---")
 

@@ -4,6 +4,12 @@
 
 ## 🚀 Key Features
 
+### 🔐 Secure Access Control
+- **Code-Based Authentication:** Simple and secure login system
+- **Session Management:** Automatic logout and session control
+- **Environment Configuration:** Flexible access code management
+- **Security Best Practices:** Follows industry standards for access control
+
 ### 🤖 AI-Powered Chat Assistant
 - **Schedulo AI:** Intelligent chatbot powered by Google Gemini 2.5 Flash
 - **Multimodal Analysis:** Upload and analyze images (screenshots, charts, documents)
@@ -35,7 +41,7 @@
 
 ### Prerequisites
 - Python 3.8+
-- Google API Key for Gemini AI
+- Google API Key for Gemini AI (optional, for chat features)
 
 ### Installation
 
@@ -51,9 +57,9 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up environment variables
-cp .env.example .env  # Then edit with your Google API key
-# or set GOOGLE_API_KEY environment variable
+# Set up environment variables (optional)
+cp config.env.example .env  # Then edit with your access code
+# or set ACCESS_CODE environment variable
 
 # Run the application
 streamlit run Scheduling.py
@@ -63,8 +69,17 @@ streamlit run Scheduling.py
 
 #### Required Environment Variables
 ```bash
+# Codice di accesso per l'applicazione (default: "warhammer")
+ACCESS_CODE=your_access_code_here
+
+# API Key per Google Gemini (opzionale, per funzionalità chat)
 GOOGLE_API_KEY=your_google_api_key_here
 ```
+
+#### Access Code Setup
+1. **Default Code:** The application uses "warhammer" as the default access code
+2. **Custom Code:** Create a `.env` file with `ACCESS_CODE=your_secure_code`
+3. **Security:** Change the default code in production environments
 
 #### API Key Setup
 1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
@@ -144,6 +159,20 @@ Allowed values for many fields are defined in the **LoVs** sheet (list-of-values
 - **Data Validation:** Ensures data integrity and proper formatting
 - **User Suggestions:** Auto-complete based on existing data
 - **Bulk Operations:** Efficient data entry and management
+
+## 🔐 Security & Authentication
+
+### Access Control
+- **Login System:** Simple code-based authentication
+- **Session Management:** Automatic logout on page refresh
+- **Default Access:** Code "warhammer" for development
+- **Production:** Change default code via environment variables
+
+### Security Best Practices
+- **Environment Variables:** Store sensitive codes in `.env` files
+- **Git Ignore:** `.env` files are excluded from version control
+- **Code Rotation:** Regularly update access codes
+- **Access Logging:** Monitor application access (future feature)
 
 ## 🔧 Configuration
 
