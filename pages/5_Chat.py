@@ -383,13 +383,114 @@ SYSTEM_PROMPT = (
     "Rispondi sempre in italiano, in modo chiaro e strutturato."
 )
 
+# === INTENT CLASSIFICATION LLM ===
+def classify_intent_with_llm(user_input):
+    """
+    Classifica l'intento della domanda come 'generica' (conversazione, help, spiegazione, onboarding, ecc.)
+    oppure 'dati' (richiesta di consultazione, filtro, analisi, aggregazione dati di scheduling).
+    Usa un prompt strutturato e ricco di contesto.
+    """
+    prompt = f"""
+# Ruolo
+Sei un classificatore di intenti per un assistente AI integrato in un'applicazione di scheduling e resource planning.
+
+# Task
+Classifica la domanda utente come:
+- 'generica' se è una richiesta di aiuto, saluto, spiegazione, onboarding, conversazione, o riguarda l'app in generale
+- 'dati' se richiede di consultare, filtrare, analizzare o aggregare i dati di scheduling
+
+# Contesto Applicazione
+L'app permette di:
+- Gestire progetti, risorse, clienti, FTE, timeline, ecc.
+- Visualizzare dashboard e report analitici sui dati di scheduling
+- Usare una chat AI per chiedere informazioni sui dati o ricevere aiuto/conversare
+
+# Struttura base dati principale
+Colonne: PROJECT_DESCR (nome progetto), CLIENT (cliente), PM_SM (project manager), USER (utente/risorsa), STATUS (stato), PLANNED_FTE, ACTUAL_FTE, ITEM_TYPE, DELIVERY_TYPE, START_DATE, END_DATE, colonne mensili (gen, feb, ... dic) per FTE allocato.
+
+# Esempi domande generiche
+- "Ciao"
+- "Come si usa la chat?"
+- "Spiegami le funzionalità dell'app"
+- "Quali sono le possibilità di analisi?"
+- "Come posso aggiungere un nuovo progetto?"
+- "A cosa serve questa applicazione?"
+- "Quali sono le feature principali?"
+- "Come posso ricevere supporto?"
+
+# Esempi domande dati
+- "Mostrami i progetti in corso"
+- "Quanti FTE sono allocati a marzo?"
+- "Chi lavora per il cliente ACME?"
+- "Elenca i progetti gestiti da L. Mangili"
+- "Qual è lo stato del progetto CRM Upgrade?"
+- "Dammi la lista degli utenti attivi nel 2024"
+- "Quali progetti sono terminati quest'anno?"
+- "Report FTE per ogni mese"
+
+# Reminder
+Rispondi solo con 'generica' o 'dati'.
+Non aggiungere spiegazioni.
+
+Domanda utente: {user_input}
+"""
+    if client is None:
+        return "generica"  # fallback prudente
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+        )
+        if hasattr(response, 'text') and response.text:
+            label = response.text.strip().lower()
+            if 'generica' in label:
+                return 'generica'
+            if 'dati' in label:
+                return 'dati'
+        # fallback prudente
+        return 'generica'
+    except Exception:
+        return 'generica'
+
+def format_result_for_user(result):
+    """
+    Formatta dizionari/liste in output leggibile per l'utente (elenco puntato o tabella Markdown).
+    """
+    import pandas as pd
+    if isinstance(result, dict):
+        # Se tutte le voci sono liste di uguale lunghezza, tabella
+        if all(isinstance(v, list) for v in result.values()) and len(set(len(v) for v in result.values())) == 1:
+            df = pd.DataFrame(result)
+            return df.to_markdown(index=False)
+        # Altrimenti elenco puntato
+        out = ""
+        for k, v in result.items():
+            if isinstance(v, list):
+                out += f"**{k}:**\n"
+                for item in v:
+                    out += f"- {item}\n"
+            elif isinstance(v, dict):
+                out += f"**{k}:**\n"
+                for subk, subv in v.items():
+                    out += f"- {subk}: {subv}\n"
+            else:
+                out += f"- **{k}:** {v}\n"
+        return out
+    elif isinstance(result, list):
+        # Se lista di dict, tabella
+        if result and isinstance(result[0], dict):
+            df = pd.DataFrame(result)
+            return df.to_markdown(index=False)
+        return "\n".join(f"- {item}" for item in result)
+    else:
+        return str(result)
+
 def generate_llm_response(user_input: str, images: list = []) -> str:
     """
     Orchestrazione RAG a due step con supporto immagini:
-    1. Prima chiamata LLM (Gemini Flash 2.5) con domanda utente, immagini e struttura dati
-    2. Se il modello suggerisce query, il backend le esegue e passa i risultati come contesto a una seconda chiamata LLM
-    3. Se non servono dati, la seconda chiamata LLM riceve solo domanda, immagini e struttura dati
-    4. (MODIFICA) Se la domanda riguarda una colonna chiave, la funzione di query generalizzata viene SEMPRE chiamata e la risposta è basata sui dati reali.
+    1. Classifica l'intento con LLM: 'generica' o 'dati'
+    2. Se 'generica', rispondi con prompt solo contesto app
+    3. Se 'dati', esegui il flusso attuale con query e dati
     """
     # Risposta custom se l'utente chiede il nome del bot
     name_queries = [
@@ -401,94 +502,131 @@ def generate_llm_response(user_input: str, images: list = []) -> str:
     if client is None:
         return "⚠️ API key mancante. Impossibile contattare il modello."
 
-    # Logica per identificare se la domanda riguarda una colonna chiave
-    def question_targets_key_column(question: str) -> bool:
-        question = question.lower()
-        key_words = [
-            'status', 'stato', 'ongoing', 'in progress', 'completato', 'completed', 'on hold', 'cancellato', 'cancelled',
-            'client', 'cliente',
-            'pm', 'project manager', 'scrum master', 'pm_sm',
-            'user', 'utente', 'risorsa', 'persona', 'collaboratore',
-            'progetto', 'project', 'project_descr', 'nome progetto', 'descrizione progetto',
-            'item_type', 'tipologia', 'tipo attività',
-            'delivery_type', 'tipo delivery'
-        ]
-        return any(k in question for k in key_words)
+    # 1. Classificazione intento
+    intent = classify_intent_with_llm(user_input)
+    if intent == 'generica':
+        # Prompt solo contesto app, nessun dato
+        generic_prompt = f"""
+# Ruolo
+Sei l'assistente AI dell'app Scheduling, piattaforma per la pianificazione e gestione risorse/progetti.
 
-    try:
-        # 1. Prepara il contenuto per la prima chiamata LLM (estrazione query)
-        parts = []
-        text_content = f"""
+# Task
+Rispondi in modo amichevole, chiaro e utile a domande generiche, onboarding, spiegazioni, saluti, richieste di aiuto, ecc. Non fornire dati specifici di scheduling.
+
+# Contesto Applicazione
+- L'app permette di gestire progetti, risorse, clienti, FTE, timeline, ecc.
+- Dashboard e report analitici
+- Chat AI per domande e supporto
+- Funzionalità: CRUD progetti, allocazione risorse, validazione dati, backup automatici, analisi avanzate, AI multimodale
+
+# Esempi domande generiche e risposte
+- "Ciao" → "Ciao! Come posso aiutarti?"
+- "Come si usa la chat?" → "Scrivi la tua domanda o richiesta nella casella in basso. Puoi chiedere sia informazioni sui dati che aiuto sull'app."
+- "Quali sono le funzionalità principali?" → "L'app offre gestione progetti, analisi risorse, dashboard KPI, chat AI, backup automatici e molto altro."
+- "Come posso ricevere supporto?" → "Puoi consultare la documentazione o contattare il team di sviluppo."
+
+# Reminder
+Rispondi sempre in italiano, in modo amichevole e sintetico.
+
+Domanda utente: {user_input}
+"""
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[generic_prompt],
+        )
+        if hasattr(response, 'text') and response.text:
+            return response.text.strip()
+        return "Posso aiutarti con informazioni sull'app o sulle sue funzionalità."
+    else:
+        # Flusso attuale: prompt con contesto + dati
+        # Logica per identificare se la domanda riguarda una colonna chiave
+        def question_targets_key_column(question: str) -> bool:
+            question = question.lower()
+            key_words = [
+                'status', 'stato', 'ongoing', 'in progress', 'completato', 'completed', 'on hold', 'cancellato', 'cancelled',
+                'client', 'cliente',
+                'pm', 'project manager', 'scrum master', 'pm_sm',
+                'user', 'utente', 'risorsa', 'persona', 'collaboratore',
+                'progetto', 'project', 'project_descr', 'nome progetto', 'descrizione progetto',
+                'item_type', 'tipologia', 'tipo attività',
+                'delivery_type', 'tipo delivery'
+            ]
+            return any(k in question for k in key_words)
+        try:
+            # 1. Prepara il contenuto per la prima chiamata LLM (estrazione query)
+            parts = []
+            text_content = f"""
 {EXTRACTION_PROMPT}
 
 Domanda utente: {user_input}
 Struttura dati:
 {get_table_structure()}
 """
-        parts.append(text_content)
-        if images:
-            for img_bytes, mime_type in images:
-                parts.append({
-                    "inline_data": {
-                        "data": encode_image_to_base64(img_bytes),
-                        "mime_type": mime_type
-                    }
-                })
-        extraction_response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=parts,
-        )
-        extraction_code = extraction_response.text.strip() if (hasattr(extraction_response, 'text') and extraction_response.text is not None) else ""
-        extracted_data = None
-        # (MODIFICA) Se la domanda riguarda una colonna chiave, chiama SEMPRE la funzione di query generalizzata
-        if question_targets_key_column(user_input):
-            extracted_data = query_scheduling_data(user_input)
-        elif extraction_code and "Non è necessaria alcuna estrazione dati" not in extraction_code:
-            try:
-                local_vars = {'df': load_scheduling()}
-                exec(extraction_code, {}, local_vars)
-                if 'result' in local_vars:
-                    extracted_data = local_vars['result']
-                elif 'user_rows' in local_vars:
-                    extracted_data = local_vars['user_rows']
-                else:
-                    extracted_data = {k: v for k, v in local_vars.items() if k not in ['df']}
-            except Exception as e:
+            parts.append(text_content)
+            if images:
+                for img_bytes, mime_type in images:
+                    parts.append({
+                        "inline_data": {
+                            "data": encode_image_to_base64(img_bytes),
+                            "mime_type": mime_type
+                        }
+                    })
+            extraction_response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=parts,
+            )
+            extraction_code = extraction_response.text.strip() if (hasattr(extraction_response, 'text') and extraction_response.text is not None) else ""
+            extracted_data = None
+            # (MODIFICA) Se la domanda riguarda una colonna chiave, chiama SEMPRE la funzione di query generalizzata
+            if question_targets_key_column(user_input):
                 extracted_data = query_scheduling_data(user_input)
-        else:
-            extracted_data = query_scheduling_data(user_input)
-        final_parts = []
-        final_text = f"""
+            elif extraction_code and "Non è necessaria alcuna estrazione dati" not in extraction_code:
+                try:
+                    local_vars = {'df': load_scheduling()}
+                    exec(extraction_code, {}, local_vars)
+                    if 'result' in local_vars:
+                        extracted_data = local_vars['result']
+                    elif 'user_rows' in local_vars:
+                        extracted_data = local_vars['user_rows']
+                    else:
+                        extracted_data = {k: v for k, v in local_vars.items() if k not in ['df']}
+                except Exception as e:
+                    extracted_data = query_scheduling_data(user_input)
+            else:
+                extracted_data = query_scheduling_data(user_input)
+            final_parts = []
+            final_text = f"""
 {SYSTEM_PROMPT}
 
 Domanda utente: {user_input}
 Struttura dati:
 {get_table_structure()}
 """
-        if extracted_data is not None:
-            final_text += f"\nRisultati estratti dal DataFrame:\n{extracted_data}\n"
-        final_parts.append(final_text)
-        if images:
-            for img_bytes, mime_type in images:
-                final_parts.append({
-                    "inline_data": {
-                        "data": encode_image_to_base64(img_bytes),
-                        "mime_type": mime_type
-                    }
-                })
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=final_parts,
-        )
-        if response and hasattr(response, 'text') and response.text:
-            # Se la risposta del modello non contiene dati reali, mostra direttamente i risultati estratti
-            if "Risultati estratti dal DataFrame" in final_text or not response.text.strip():
-                return extracted_data if isinstance(extracted_data, str) else str(extracted_data)
-            return response.text.strip()
-        else:
-            return extracted_data if isinstance(extracted_data, str) else str(extracted_data)
-    except Exception as e:
-        return f"❌ Errore durante la chiamata al modello: {e}"
+            if extracted_data is not None:
+                final_text += f"\nRisultati estratti dal DataFrame:\n{format_result_for_user(extracted_data)}\n"
+            final_parts.append(final_text)
+            if images:
+                for img_bytes, mime_type in images:
+                    final_parts.append({
+                        "inline_data": {
+                            "data": encode_image_to_base64(img_bytes),
+                            "mime_type": mime_type
+                        }
+                    })
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=final_parts,
+            )
+            if response and hasattr(response, 'text') and response.text:
+                text_val = str(response.text)
+                # Se la risposta del modello non contiene dati reali, mostra direttamente i risultati estratti
+                if "Risultati estratti dal DataFrame" in final_text or not text_val.strip():
+                    return str(format_result_for_user(extracted_data))
+                return text_val.strip()
+            else:
+                return str(format_result_for_user(extracted_data))
+        except Exception as e:
+            return f"❌ Errore durante la chiamata al modello: {e}"
 
 # Funzione per pulire la conversazione
 def clear_conversation():
