@@ -50,4 +50,8 @@ Thumbs.db
 # Other
 build/
 dist/
-*.egg-info/ 
+*.egg-info/
+
+# Docker
+.env
+docker-compose.override.yml 

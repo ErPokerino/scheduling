@@ -3,4 +3,7 @@ primaryColor = "#6667AB"          # lavender / Very Peri
 backgroundColor = "#0E0E0E"       # almost-black neutral background
 secondaryBackgroundColor = "#1F1F1F" # dark grey for containers & sidebar
 textColor = "#FFFFFF"              # white text for high contrast
-font = "sans serif" 
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false 

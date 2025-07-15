@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  scheduling-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: scheduling-app
+    ports:
+      - "8501:8501"
+    volumes:
+      # Monta la directory data per persistenza
+      - ./data:/app/data
+      # Monta la configurazione Streamlit
+      - ./.streamlit:/app/.streamlit:ro
+    environment:
+      # Variabili d'ambiente per l'applicazione
+      - ACCESS_CODE=${ACCESS_CODE:-warhammer}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # Configurazioni Streamlit
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=false
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - scheduling-network
+
+networks:
+  scheduling-network:
+    driver: bridge 

@@ -1,0 +1,65 @@
+# File di sistema
+.DS_Store
+Thumbs.db
+
+# File Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+
+# Environment files (verranno gestiti tramite variabili d'ambiente)
+.env
+config.env
+
+# Data files (verranno montati come volume)
+data/
+
+# Documentation
+README.md
+TODO.md
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.override.yml
+
+# Temporary files
+*.tmp
+*.temp 
