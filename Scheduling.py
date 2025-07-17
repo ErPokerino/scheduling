@@ -12,6 +12,17 @@ load_dotenv()
 st.set_page_config(page_title="Scheduling", page_icon="📅", layout="wide")
 
 # =======================
+# GESTIONE DATI CONDIVISI
+# =======================
+# Inizializza session state per i dati condivisi
+if 'shared_scheduling_data' not in st.session_state:
+    st.session_state.shared_scheduling_data = None
+    st.session_state.data_last_updated = None
+
+# Importa funzioni di utilità per i dati condivisi
+from src.utils import update_shared_data, show_data_update_info
+
+# =======================
 # SISTEMA DI LOGIN
 # =======================
 # Codice di accesso (in produzione dovrebbe essere in .env)
@@ -60,8 +71,11 @@ if not st.session_state.authenticated:
 st.title("📅 Scheduling – Resource Planning")
 
 # Caricamento dati di schedulazione
-
 df = load_scheduling()
+
+# Aggiorna i dati condivisi se non sono ancora stati impostati
+if st.session_state.shared_scheduling_data is None:
+    update_shared_data(df)
 
 # =======================
 # IMPORT/EXPORT DATI
@@ -129,17 +143,26 @@ with col2:
             if st.button("🔄 Applica Import", type="primary"):
                 if import_mode == "Sostituisci tutti i dati":
                     save_scheduling(new_df)
-                    st.success("✅ Dati sostituiti con successo!")
+                    # Aggiorna i dati condivisi
+                    update_shared_data(new_df)
+                    st.success("✅ Dati sostituiti con successo e resi disponibili in tutte le sezioni!")
+                    st.info("🔄 I dati sono ora accessibili in Analytics e Chat. Ricarica le altre pagine per vedere i nuovi dati.")
                     st.rerun()
                 else:
                     # Aggiungi ai dati esistenti
                     combined_df = pd.concat([df, new_df], ignore_index=True)
                     save_scheduling(combined_df)
-                    st.success("✅ Dati aggiunti con successo!")
+                    # Aggiorna i dati condivisi
+                    update_shared_data(combined_df)
+                    st.success("✅ Dati aggiunti con successo e resi disponibili in tutte le sezioni!")
+                    st.info("🔄 I dati sono ora accessibili in Analytics e Chat. Ricarica le altre pagine per vedere i nuovi dati.")
                     st.rerun()
                     
         except Exception as e:
             st.error(f"❌ Errore nel caricamento del file: {str(e)}")
+
+# Mostra informazioni sui dati condivisi
+show_data_update_info()
 
 # Pulsante logout
 col1, col2, col3 = st.columns([2, 1, 1])

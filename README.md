@@ -1,8 +1,15 @@
 # Scheduling - Resource Planning App 📅
 
-**A comprehensive Streamlit web application for managing and monitoring project resource allocation with AI-powered insights and advanced analytics.**
+**A comprehensive Streamlit web application for managing and monitoring project resource allocation with AI-powered insights, advanced analytics, and real-time data sharing across all sections.**
 
 ## 🚀 Key Features
+
+### 🔄 Real-Time Data Sharing (NEW v2.0)
+- **Cross-Section Data Access:** Data loaded in Scheduling section is immediately available in Analytics, Chat, and Projects
+- **Automatic Notifications:** Each section shows when data has been updated
+- **Intelligent Caching:** Optimized performance with smart cache management
+- **Session State Management:** Seamless data sharing across application sections
+- **Import/Export Integration:** Manual file uploads automatically update all sections
 
 ### 🔐 Secure Access Control
 - **Code-Based Authentication:** Simple and secure login system
@@ -16,6 +23,7 @@
 - **Natural Language Queries:** Ask questions about your data in plain English
 - **Context Awareness:** Understands your scheduling data structure and provides relevant insights
 - **Conversation Memory:** Maintains context across chat sessions
+- **Real-Time Data Access:** Chatbot can access newly uploaded data immediately
 
 ### 📊 Advanced Analytics Dashboard
 - **KPI Dashboard:** Real-time metrics (projects, users, clients, PMs, FTE allocation)
@@ -23,6 +31,7 @@
 - **Interactive Visualizations:** Pie charts, trend lines, heatmaps, and data tables
 - **Dynamic Filtering:** Filter by year, users, dimensions, and custom criteria
 - **FTE Breakdown:** Monthly allocation analysis and capacity planning
+- **Live Data Updates:** Analytics automatically reflect newly imported data
 
 ### 📋 Project Management
 - **Comprehensive CRUD:** Add, edit, delete projects with full metadata
@@ -30,12 +39,14 @@
 - **Data Validation:** Ensures data integrity and proper formatting
 - **User Suggestions:** Auto-complete based on existing data
 - **Excel Integration:** Seamless data persistence with automatic backups
+- **Cross-Section Updates:** Changes in Projects are immediately visible in other sections
 
 ### 🔍 Smart Data Handling
 - **Robust Error Handling:** Automatic recovery from corrupted files
 - **Data Type Management:** Intelligent conversion and validation
 - **Backup System:** Automatic timestamped backups
 - **Sample Data:** Auto-generation of example data for new installations
+- **Shared Data Management:** Centralized data access with fallback mechanisms
 
 ## 🛠️ Quick Start
 
@@ -65,6 +76,20 @@ cp config.env.example .env  # Then edit with your access code
 streamlit run Scheduling.py
 ```
 
+### Docker Deployment (Recommended)
+
+```bash
+# Build and run with Docker
+./docker-build.sh build && ./docker-build.sh run
+
+# Or on Windows
+docker-build.bat build && docker-build.bat run
+
+# Export/Import Docker image
+./docker-build.sh export  # Creates scheduling-app-v2.0_TIMESTAMP.tar
+./docker-build.sh import scheduling-app-v2.0_TIMESTAMP.tar
+```
+
 ### Environment Setup
 
 #### Required Environment Variables
@@ -90,18 +115,24 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ```
 scheduling/
-├── Scheduling.py              # Main Streamlit application
+├── Scheduling.py              # Main Streamlit application with data sharing
 ├── pages/
 │   ├── 2_Projects.py         # Project management and CRUD operations
 │   ├── 4_Analytics.py        # Advanced analytics and visualization dashboard
 │   └── 5_Chat.py             # AI chat assistant with Gemini (multimodal)
 ├── src/
 │   ├── __init__.py
-│   ├── data_access.py        # Excel file operations and data persistence
+│   ├── data_access.py        # Excel file operations and shared data management
 │   ├── models.py             # Data models and schemas
-│   └── utils.py              # Utility functions and helpers
+│   └── utils.py              # Utility functions and data sharing helpers
 ├── data/                     # Excel data storage
+├── .streamlit/               # Streamlit configuration for optimized performance
 ├── requirements.txt          # Python dependencies
+├── Dockerfile                # Docker configuration with v2.0 optimizations
+├── docker-compose.yml        # Docker Compose with data sharing support
+├── docker-build.sh           # Linux build script with export/import
+├── docker-build.bat          # Windows build script with export/import
+├── README-Data-Sharing.md    # Detailed documentation for data sharing features
 ├── TODO.md                   # Development roadmap and progress
 └── README.md                 # This file
 ```
@@ -139,11 +170,19 @@ Allowed values for many fields are defined in the **LoVs** sheet (list-of-values
 
 ## 🎯 Features in Detail
 
+### 🔄 Data Sharing System (v2.0)
+- **Immediate Access:** Data uploaded in Scheduling is instantly available in all sections
+- **Smart Notifications:** Each section displays data update timestamps
+- **Cache Management:** Intelligent cache invalidation and refresh
+- **Fallback System:** Automatic fallback to file-based loading if shared data unavailable
+- **Performance Optimization:** Reduced loading times through shared session state
+
 ### 🤖 AI Chat Assistant (Schedulo)
 - **Natural Language Processing:** Ask questions like "Show me all projects for M. Sorrentino" or "Which projects are behind schedule?"
 - **Image Analysis:** Upload screenshots, charts, or documents for AI analysis
 - **Contextual Responses:** AI understands your data structure and provides relevant insights
 - **Interactive Help:** Get guidance on using the application and interpreting data
+- **Real-Time Data:** Chatbot can access newly uploaded data immediately
 
 ### 📈 Advanced Analytics
 - **Dashboard KPI:** Overview metrics with real-time updates
@@ -152,6 +191,7 @@ Allowed values for many fields are defined in the **LoVs** sheet (list-of-values
 - **PM Reports:** Project manager workload and resource management insights
 - **Client Reports:** Client-specific project and resource analysis
 - **Interactive Charts:** Zoom, filter, and explore data visually
+- **Live Data Integration:** Analytics automatically reflect newly imported data
 
 ### 📋 Project Management
 - **Add New Projects:** Comprehensive form with all project metadata
@@ -159,6 +199,7 @@ Allowed values for many fields are defined in the **LoVs** sheet (list-of-values
 - **Data Validation:** Ensures data integrity and proper formatting
 - **User Suggestions:** Auto-complete based on existing data
 - **Bulk Operations:** Efficient data entry and management
+- **Cross-Section Updates:** Changes immediately visible in Analytics and Chat
 
 ## 🔐 Security & Authentication
 
@@ -181,6 +222,13 @@ The application uses Excel files for data persistence:
 - **Primary Data:** `data/SCHEDULING.xlsx` (main scheduling data)
 - **Backup System:** Automatic backups with timestamps
 - **Data Integrity:** Error handling and recovery mechanisms
+- **Shared Access:** Session state management for cross-section data access
+
+### Docker Configuration
+- **Optimized Images:** Streamlit configuration optimized for data sharing
+- **Performance Tuning:** Memory limits and resource management
+- **Cache Volumes:** Persistent cache for improved performance
+- **Export/Import:** Easy deployment with Docker image export/import
 
 ### Customization
 - **Themes:** Customizable appearance via Streamlit configuration
@@ -189,26 +237,18 @@ The application uses Excel files for data persistence:
 
 ## 🚀 Roadmap
 
-### Current Version (v0.2)
+### Current Version (v2.0)
 - ✅ Streamlit application with Excel backend
 - ✅ Google Gemini AI integration
 - ✅ Advanced analytics dashboard
 - ✅ Multimodal image analysis
 - ✅ Robust data handling and validation
+- ✅ **Real-time data sharing across all sections**
+- ✅ **Automatic notifications and cache management**
+- ✅ **Docker optimization and export/import functionality**
 
-### Upcoming Features (v0.3)
+### Upcoming Features (v3.0)
 - 🔄 Authentication and role-based access
-- 🔄 Advanced search and filtering
-- 🔄 Export functionality (CSV, Excel, PDF)
-- 🔄 Real-time notifications
-- 🔄 Mobile-responsive design
-
-### Future Versions (v1.0+)
-- 📋 SQLite/PostgreSQL database backend
-- 📋 Docker containerization
-- 📋 Cloud deployment (Streamlit Community Cloud, Azure, AWS)
-- 📋 API endpoints for external integrations
-- 📋 Advanced AI features (predictions, auto-scheduling)
 
 ## 🛠️ Troubleshooting
 

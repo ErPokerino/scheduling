@@ -1,11 +1,6 @@
-from pandas.api.types import (
-    is_categorical_dtype,
-    is_datetime64_any_dtype,
-    is_numeric_dtype,
-    is_object_dtype,
-)
-import pandas as pd
 import streamlit as st
+import pandas as pd
+from typing import Optional
 
 
 def to_fte(days: float) -> float:
@@ -14,107 +9,147 @@ def to_fte(days: float) -> float:
 
 
 def filter_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Generate UI controls to filter a DataFrame column-wise and return the filtered view.
-
-    The function renders, inside an *expander*, widgets that adapt to the dtype of
-    each column so that users can interactively constrain the data shown in the
-    table. It supports:
-    - Categorical / low-cardinality columns   → multiselect of allowed values.
-    - Numeric columns                        → range slider.
-    - Datetime columns                       → date range picker.
-    - All other dtypes (strings, objects …)  → substring / regex text input.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The source DataFrame.
-
-    Returns
-    -------
-    pd.DataFrame
-        The filtered DataFrame.
     """
-    if df.empty:
+    Adds a widget on top of a dataframe to let viewers filter columns
+
+    Args:
+        df (pd.DataFrame): Original dataframe
+
+    Returns:
+        pd.DataFrame: Filtered dataframe
+    """
+    modify = st.checkbox("Add filters")
+
+    if not modify:
         return df
 
-    df_filtered = df.copy()
+    df = df.copy()
 
-    with st.expander("🔍 Filtra dati", expanded=False):
-        if st.button("❌ Azzera filtri", key=f"reset_{id(df)}"):
-            # Rimuove tutte le chiavi di sessione relative ai filtri e ricarica la pagina
-            for k in list(st.session_state.keys()):
-                if k.startswith("filter_"):
-                    st.session_state.pop(k)
-            st.experimental_rerun()
+    # Try to convert datetimes into a standard format (datetime, no timezone)
+    for col in df.columns:
+        if is_object_dtype(df[col]):
+            try:
+                df[col] = pd.to_datetime(df[col])
+            except Exception:
+                pass
 
-        for col in df_filtered.columns:
-            # --------- Trattamento colonne categoriche o con bassa cardinalità ---------
-            cat_like = is_categorical_dtype(df_filtered[col]) or (
-                0 < df_filtered[col].nunique() < 15
-            )
-            if cat_like:
-                # Se non ci sono valori unici (tutta NaN) saltiamo il filtro
-                values = df_filtered[col].dropna().unique().tolist()
-                if not values:
-                    continue
-                selected = st.multiselect(
-                    f"Valori per `{col}`",
-                    options=values,
-                    default=list(values),
-                    key=f"filter_cat_{col}",
+        if is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    modification_container = st.container()
+
+    with modification_container:
+        to_filter_columns = st.multiselect("Filter dataframe on", df.columns)
+        for column in to_filter_columns:
+            left, right = st.columns((1, 20))
+            # Treat columns with < 10 unique values as categorical
+            if is_categorical_dtype(df[column]) or df[column].nunique() < 10:
+                user_cat_input = right.multiselect(
+                    f"Values for {column}",
+                    df[column].unique(),
+                    default=list(df[column].unique()),
                 )
-                # Manteniamo anche i record con valore mancante per la colonna
-                df_filtered = df_filtered[
-                    df_filtered[col].isin(selected) | df_filtered[col].isna()
-                ]
-
-            elif is_numeric_dtype(df_filtered[col]):
-                # Se la colonna è tutta NaN, ignoriamo il filtro per non azzerare il DataFrame
-                if df_filtered[col].dropna().empty:
-                    continue
-                min_raw = df_filtered[col].min()
-                max_raw = df_filtered[col].max()
-                if pd.isna(min_raw) or pd.isna(max_raw):
-                    # Colonna senza valori numerici validi
-                    continue
-                min_val = float(min_raw)
-                max_val = float(max_raw)
-                if min_val == max_val:
-                    continue  # nothing to filter
-                step = (max_val - min_val) / 100.0 or 1.0
-                user_min, user_max = st.slider(
-                    f"Range `{col}`",
-                    min_value=min_val,
-                    max_value=max_val,
-                    value=(min_val, max_val),
+                df = df[df[column].isin(user_cat_input)]
+            elif is_numeric_dtype(df[column]):
+                _min = float(df[column].min())
+                _max = float(df[column].max())
+                step = (_max - _min) / 100
+                user_num_input = right.slider(
+                    f"Values for {column}",
+                    min_value=_min,
+                    max_value=_max,
+                    value=(_min, _max),
                     step=step,
-                    key=f"filter_num_{col}",
                 )
-                df_filtered = df_filtered[
-                    df_filtered[col].between(user_min, user_max) | df_filtered[col].isna()
-                ]
-
-            elif is_datetime64_any_dtype(df_filtered[col]):
-                start_date = df_filtered[col].min().date()
-                end_date = df_filtered[col].max().date()
-                date_min, date_max = st.date_input(
-                    f"Range `{col}`",
-                    value=(start_date, end_date),
-                    key=f"filter_date_{col}",
+                df = df[df[column].between(*user_num_input)]
+            elif is_datetime64_any_dtype(df[column]):
+                user_date_input = right.date_input(
+                    f"Values for {column}",
+                    value=(
+                        df[column].min(),
+                        df[column].max(),
+                    ),
                 )
-                if isinstance(date_min, tuple):
-                    # When user clears selection the widget may return a single date
-                    date_min, date_max = date_min
-                df_filtered = df_filtered[
-                    df_filtered[col].between(pd.to_datetime(date_min), pd.to_datetime(date_max))
-                ]
-
+                if len(user_date_input) == 2:
+                    user_date_input = tuple(map(pd.to_datetime, user_date_input))
+                    start_date, end_date = user_date_input
+                    df = df.loc[df[column].between(start_date, end_date)]
             else:
-                text = st.text_input(
-                    f"Filtro testo / regex in `{col}`",
-                    key=f"filter_text_{col}",
+                user_text_input = right.text_input(
+                    f"Substring or regex in {column}",
                 )
-                if text:
-                    df_filtered = df_filtered[df_filtered[col].astype(str).str.contains(text, case=False, na=False)]
+                if user_text_input:
+                    df = df[df[column].astype(str).str.contains(user_text_input)]
 
-    return df_filtered
+    return df
+
+def update_shared_data(df: pd.DataFrame) -> None:
+    """
+    Aggiorna i dati condivisi nel session state e invalida il cache
+    
+    Args:
+        df (pd.DataFrame): DataFrame da condividere
+    """
+    if hasattr(st, 'session_state'):
+        st.session_state.shared_scheduling_data = df.copy()
+        st.session_state.data_last_updated = pd.Timestamp.now()
+        # Invalida il cache per forzare il ricaricamento nelle altre sezioni
+        st.cache_data.clear()
+
+def get_shared_data() -> Optional[pd.DataFrame]:
+    """
+    Ottiene i dati condivisi dal session state se disponibili
+    
+    Returns:
+        Optional[pd.DataFrame]: DataFrame condiviso o None se non disponibile
+    """
+    try:
+        if hasattr(st, 'session_state') and 'shared_scheduling_data' in st.session_state:
+            shared_data = st.session_state.shared_scheduling_data
+            if shared_data is not None:
+                return shared_data.copy()
+    except Exception as e:
+        print(f"Error loading shared data: {e}")
+    
+    return None
+
+def show_data_update_info() -> None:
+    """
+    Mostra informazioni sui dati condivisi se disponibili
+    """
+    if hasattr(st, 'session_state') and 'data_last_updated' in st.session_state:
+        if st.session_state.data_last_updated:
+            st.info(f"📊 **Dati aggiornati:** {st.session_state.data_last_updated.strftime('%d/%m/%Y %H:%M:%S')}")
+
+def clear_shared_data() -> None:
+    """
+    Pulisce i dati condivisi dal session state
+    """
+    if hasattr(st, 'session_state'):
+        if 'shared_scheduling_data' in st.session_state:
+            del st.session_state.shared_scheduling_data
+        if 'data_last_updated' in st.session_state:
+            del st.session_state.data_last_updated
+        st.cache_data.clear()
+
+# Import necessari per filter_dataframe
+try:
+    from pandas.api.types import (
+        is_categorical_dtype,
+        is_datetime64_any_dtype,
+        is_numeric_dtype,
+        is_object_dtype,
+    )
+except ImportError:
+    # Fallback per versioni più vecchie di pandas
+    def is_categorical_dtype(obj):
+        return hasattr(obj, 'dtype') and obj.dtype.name == 'category'
+    
+    def is_datetime64_any_dtype(obj):
+        return hasattr(obj, 'dtype') and 'datetime' in str(obj.dtype)
+    
+    def is_numeric_dtype(obj):
+        return hasattr(obj, 'dtype') and obj.dtype in ['int64', 'float64', 'int32', 'float32']
+    
+    def is_object_dtype(obj):
+        return hasattr(obj, 'dtype') and obj.dtype == 'object'

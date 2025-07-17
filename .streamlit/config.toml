@@ -6,4 +6,29 @@ textColor = "#FFFFFF"              # white text for high contrast
 font = "sans serif"
 
 [browser]
-gatherUsageStats = false 
+gatherUsageStats = false
+
+[server]
+enableCORS = false
+enableXsrfProtection = false
+enableWebsocketCompression = true
+enableStaticServing = true
+maxUploadSize = 200
+maxMessageSize = 200
+
+[global]
+developmentMode = false
+showWarningOnDirectExecution = false
+
+[client]
+caching = true
+displayEnabled = true
+
+[runner]
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true
+
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(message)s" 

@@ -19,6 +19,12 @@ st.title("💬 Chat Assistant")
 
 st.caption("LLM integration to ask natural-language questions about your schedules and analyze images.")
 
+# =======================
+# GESTIONE DATI CONDIVISI
+# =======================
+from src.utils import show_data_update_info
+show_data_update_info()
+
 # Istruzioni per l'uso
 with st.expander("ℹ️ Come usare la chat", expanded=False):
     st.markdown("""

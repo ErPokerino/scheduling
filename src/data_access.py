@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 import shutil
 from datetime import datetime
+import streamlit as st
 
 DATA_FILE = Path(__file__).resolve().parent.parent / "data" / "SCHEDULING.xlsx"
 DATA_FILE.parent.mkdir(exist_ok=True, parents=True)
@@ -84,8 +85,28 @@ def create_new_scheduling_file():
     
     return df
 
+def load_shared_scheduling_data():
+    """Load scheduling data from session state if available, otherwise from file."""
+    try:
+        # Check if shared data is available in session state
+        if hasattr(st, 'session_state') and 'shared_scheduling_data' in st.session_state:
+            shared_data = st.session_state.shared_scheduling_data
+            if shared_data is not None:
+                return shared_data.copy()
+    except Exception as e:
+        print(f"Error loading shared data: {e}")
+    
+    # Fallback to file loading
+    return None
+
 def load_scheduling(sheet_name: str = "Scheduling") -> pd.DataFrame:
     """Load the scheduling sheet as DataFrame with error handling."""
+    # First try to load from shared session state
+    shared_df = load_shared_scheduling_data()
+    if shared_df is not None:
+        return shared_df
+    
+    # Fallback to file loading
     try:
         df = pd.read_excel(DATA_FILE, sheet_name=sheet_name)
         

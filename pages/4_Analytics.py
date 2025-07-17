@@ -11,6 +11,12 @@ st.set_page_config(page_title="Analytics", page_icon="📈", layout="wide")
 
 st.title("📈 Analytics – Resource Allocation & Project Insights")
 
+# =======================
+# GESTIONE DATI CONDIVISI
+# =======================
+from src.utils import show_data_update_info
+show_data_update_info()
+
 # Load data
 @st.cache_data
 def load_data():

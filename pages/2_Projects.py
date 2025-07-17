@@ -6,6 +6,12 @@ from streamlit_tags import st_tags
 # ---------------------- PAGE LAYOUT ----------------------
 st.title("📋 Manage Projects")
 
+# =======================
+# GESTIONE DATI CONDIVISI
+# =======================
+from src.utils import show_data_update_info, update_shared_data
+show_data_update_info()
+
 # Load data and ensure optional columns exist
 df = load_scheduling()
 # Ensure text-based metadata columns exist and are stored as strings/object dtype
@@ -201,7 +207,10 @@ if submitted:
         if new_rows:
             new_df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
             save_scheduling(new_df)
+            # Aggiorna i dati condivisi
+            update_shared_data(new_df)
             st.success("Project added and visible in Schedule. Puoi modificarlo subito sotto.")
+            st.info("🔄 I dati sono ora accessibili in tutte le sezioni dell'applicazione.")
 
 # ---------------------- MODIFY / DELETE PROJECT ----------------------
 st.header("Edit or delete existing project")
@@ -341,7 +350,9 @@ if proj_selected:
             if not isinstance(updated_df, pd.DataFrame):
                 updated_df = pd.DataFrame(updated_df)
             save_scheduling(updated_df)
-            st.success("Project updated.")
+            # Aggiorna i dati condivisi
+            update_shared_data(updated_df)
+            st.success("Project updated and data shared across all sections.")
 
             # Se non resta alcuna riga per il progetto, informare utente
             if to_keep.empty:
@@ -353,4 +364,6 @@ if proj_selected:
             if not isinstance(df_after, pd.DataFrame):
                 df_after = pd.DataFrame(df_after)
             save_scheduling(df_after)
-            st.success(f"Project '{proj_selected}' deleted.")
+            # Aggiorna i dati condivisi
+            update_shared_data(df_after)
+            st.success(f"Project '{proj_selected}' deleted and data shared across all sections.")

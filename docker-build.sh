@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script per build e deployment dell'app Scheduling con Docker
-# Uso: ./docker-build.sh [build|run|stop|clean|logs]
+# Uso: ./docker-build.sh [build|run|stop|clean|logs|export|import]
 
 set -e
 
@@ -60,17 +60,18 @@ check_env_file() {
 
 # Build dell'immagine
 build_image() {
-    print_info "Building Docker image..."
+    print_info "Building Docker image con nuove funzionalità di condivisione dati..."
     docker-compose build --no-cache
-    print_success "Build completato!"
+    print_success "Build completato con funzionalità di condivisione dati!"
 }
 
 # Avvia l'applicazione
 run_app() {
-    print_info "Avvio dell'applicazione..."
+    print_info "Avvio dell'applicazione con condivisione dati..."
     docker-compose up -d
-    print_success "Applicazione avviata!"
+    print_success "Applicazione avviata con condivisione dati!"
     print_info "Accesso disponibile su: http://localhost:8501"
+    print_info "Nuove funzionalità: Condivisione automatica dati tra sezioni"
     print_info "Per vedere i log: ./docker-build.sh logs"
 }
 
@@ -107,6 +108,29 @@ check_status() {
     docker-compose ps
 }
 
+# Export dell'immagine
+export_image() {
+    print_info "Export dell'immagine Docker..."
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    filename="scheduling-app-v2.0_${timestamp}.tar"
+    print_info "Creazione file: $filename"
+    docker save scheduling-scheduling-app:latest -o "$filename"
+    print_success "Immagine esportata in: $filename"
+    print_info "Per importare: docker load -i $filename"
+}
+
+# Import dell'immagine
+import_image() {
+    if [ -z "$2" ]; then
+        print_error "Specifica il file da importare: $0 import filename.tar"
+        exit 1
+    fi
+    print_info "Import dell'immagine Docker da: $2"
+    docker load -i "$2"
+    print_success "Immagine importata!"
+    print_info "Per avviare: $0 run"
+}
+
 # Menu principale
 case "${1:-help}" in
     "build")
@@ -140,23 +164,42 @@ case "${1:-help}" in
         check_docker
         check_status
         ;;
+    "export")
+        check_docker
+        export_image
+        ;;
+    "import")
+        check_docker
+        import_image "$@"
+        ;;
     "help"|*)
         echo "Script per build e deployment dell'app Scheduling con Docker"
+        echo "Versione 2.0 - Con funzionalità di condivisione dati"
         echo ""
         echo "Uso: $0 [comando]"
         echo ""
         echo "Comandi disponibili:"
-        echo "  build    - Build dell'immagine Docker"
-        echo "  run      - Avvia l'applicazione"
+        echo "  build    - Build dell'immagine Docker con nuove funzionalità"
+        echo "  run      - Avvia l'applicazione con condivisione dati"
         echo "  stop     - Ferma l'applicazione"
         echo "  restart  - Riavvia l'applicazione"
         echo "  logs     - Mostra i log"
         echo "  clean    - Pulisce tutto (container, immagini, volumi)"
         echo "  status   - Mostra lo stato dei container"
+        echo "  export   - Esporta l'immagine Docker in file .tar"
+        echo "  import   - Importa l'immagine Docker da file .tar"
         echo "  help     - Mostra questo aiuto"
+        echo ""
+        echo "Nuove funzionalità v2.0:"
+        echo "  - Condivisione automatica dati tra sezioni"
+        echo "  - Notifiche di aggiornamento dati"
+        echo "  - Cache intelligente per performance ottimali"
+        echo "  - Configurazioni Streamlit ottimizzate"
         echo ""
         echo "Esempi:"
         echo "  $0 build && $0 run    # Build e avvio"
+        echo "  $0 export             # Esporta immagine"
+        echo "  $0 import app.tar     # Importa immagine"
         echo "  $0 logs               # Visualizza log"
         echo "  $0 stop               # Ferma l'app"
         ;;
